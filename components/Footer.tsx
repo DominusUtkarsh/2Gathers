@@ -34,22 +34,22 @@ function Footer() {
               </div>
               <span className="text-lg font-bold text-white">2Gathers</span>
             </div>
-            <p className="max-w-sm text-sm leading-relaxed text-surface-500">
-              A professional freelancing platform with stronger structure, calmer spacing, and a more intentional product feel. Built for modern teams.
+            <p className="max-w-sm text-sm leading-relaxed text-surface-400">
+              A verified marketplace connecting clients and freelancers through structured hiring, proposals, and milestone workflows.
             </p>
             <div className="mt-6">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-5 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 transition-all duration-200 hover:bg-white/10 hover:ring-white/20"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-5 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 transition-colors duration-150 hover:bg-white/10 hover:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
               >
-                Start building <ArrowUpRight className="h-4 w-4" />
+                Start building
               </Link>
             </div>
           </div>
 
           {Object.entries(links).map(([groupName, items]) => (
             <div key={groupName}>
-              <h4 className="mb-4 text-xs font-semibold uppercase tracking-widest text-surface-300">
+              <h4 className="mb-4 text-xs font-semibold text-surface-300">
                 {groupName}
               </h4>
               <ul className="space-y-3 text-sm">
@@ -57,7 +57,7 @@ function Footer() {
                   <li key={item.label}>
                     <Link
                       href={item.href}
-                      className="transition-colors duration-200 hover:text-white"
+                      className="transition-colors duration-150 hover:text-white focus-visible:outline-none focus-visible:underline"
                     >
                       {item.label}
                     </Link>
@@ -68,11 +68,10 @@ function Footer() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col gap-4 border-t border-surface-800 pt-8 text-xs text-surface-600 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-14 flex flex-col gap-4 border-t border-surface-800 pt-8 text-xs text-surface-500 sm:flex-row sm:items-center sm:justify-between">
           <p>&copy; {new Date().getFullYear()} 2Gathers. All rights reserved.</p>
-          <p className="flex items-center gap-1.5">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-success-500 animate-pulse" />
-            All systems operational
+          <p className="text-surface-500">
+            Platform operational
           </p>
         </div>
       </div>

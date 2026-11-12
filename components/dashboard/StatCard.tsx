@@ -25,7 +25,7 @@ export function StatCard({ label, value, helper, delta, positive = true, icon: I
 
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-surface-500">{label}</p>
+          <p className="text-xs font-medium text-surface-500">{label}</p>
           <p className="mt-2 font-heading text-3xl font-bold text-surface-900">{value}</p>
         </div>
         {Icon && (

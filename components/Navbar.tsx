@@ -25,6 +25,7 @@ const freelancerLinks = [
 
 const clientLinks = [
   { href: "/client/post-job", label: "Post Job" },
+  { href: "/projects", label: "Workspaces" },
   { href: "/jobs", label: "Browse Jobs" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/dashboard", label: "Dashboard" },
@@ -96,15 +97,17 @@ function Navbar() {
 
   return (
     <>
-      <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${navClasses}`}>
+      <header className={`fixed top-0 z-50 w-full transition-[background-color,border-color,box-shadow] duration-200 ${navClasses}`}>
         {/* Accent line at the very top */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-primary-500 via-accent-500 to-primary-500 opacity-80" />
+        {!showDarkNav && <div className="h-[2px] w-full bg-primary-600 opacity-80" />}
 
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
           {/* Brand */}
-          <Link href={brandHref} className="flex items-center gap-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-accent-600 shadow-md shadow-primary-600/25 transition-transform duration-200 group-hover:scale-105">
-              <span className="text-sm font-black text-white">2G</span>
+          <Link href={brandHref} className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-lg">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-black shadow-sm transition-transform duration-150 group-hover:scale-105 motion-reduce:transform-none ${
+              showDarkNav ? "bg-white text-primary-700" : "bg-primary-600 text-white"
+            }`}>
+              <span className="text-sm">2G</span>
             </div>
             <span className={`text-base font-bold tracking-tight transition-colors ${showDarkNav ? "text-white" : "text-surface-900"}`}>
               2Gathers
@@ -119,7 +122,7 @@ function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`relative rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
+                  className={`relative rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     active ? activeLinkClass : linkTextClass
                   }`}
                 >
@@ -143,13 +146,13 @@ function Navbar() {
                 <button
                   type="button"
                   onClick={() => setUserMenuOpen((v) => !v)}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     showDarkNav
                       ? "text-white/90 hover:bg-white/10"
                       : "text-surface-700 hover:bg-surface-100"
                   }`}
                 >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 text-[11px] font-bold text-white shadow-sm">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-[11px] font-bold text-white shadow-sm">
                     {(user.username || user.email || "U")[0].toUpperCase()}
                   </div>
                   <span className="max-w-[120px] truncate">{user.username}</span>
@@ -168,7 +171,7 @@ function Navbar() {
                       <div className="border-b border-surface-100 px-3 py-2 mb-1">
                         <p className="text-sm font-semibold text-surface-900 truncate">{user.username}</p>
                         <p className="text-xs text-surface-500 truncate">{user.email}</p>
-                        <span className="mt-1 inline-block rounded-md bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700">
+                        <span className="mt-1 inline-block rounded-md bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">
                           {user.role}
                         </span>
                       </div>
@@ -206,13 +209,19 @@ function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${linkTextClass}`}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    showDarkNav ? "text-white/95 hover:text-white" : linkTextClass
+                  }`}
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/register"
-                  className="rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary-600/25 transition-all duration-200 hover:shadow-lg hover:shadow-primary-600/30 active:scale-[0.98]"
+                  className={`px-5 py-2 text-sm font-semibold shadow-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98] ${
+                    showDarkNav
+                      ? "rounded-full bg-white text-surface-900 hover:bg-surface-50"
+                      : "rounded-xl bg-primary-600 text-white hover:bg-primary-500"
+                  }`}
                 >
                   Get started
                 </Link>
@@ -223,7 +232,7 @@ function Navbar() {
           {/* Mobile menu trigger */}
           <button
             type="button"
-            className={`rounded-xl p-2 transition md:hidden ${
+            className={`rounded-xl p-2 transition-colors disabled:opacity-50 md:hidden ${
               showDarkNav
                 ? "text-white hover:bg-white/10"
                 : "text-surface-700 hover:bg-surface-100"

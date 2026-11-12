@@ -1,7 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ArrowRight, LucideIcon } from "lucide-react";
+import { LucideIcon, ArrowRight } from "lucide-react";
 
 type ActionCardProps = {
   title: string;
@@ -9,37 +8,37 @@ type ActionCardProps = {
   buttonLabel: string;
   icon: LucideIcon;
   onClick: () => void;
-  accentClass: string;
+  accentClass?: string;
 };
 
-export function ActionCard({ title, description, buttonLabel, icon: Icon, onClick, accentClass }: ActionCardProps) {
+export function ActionCard({
+  title,
+  description,
+  buttonLabel,
+  icon: Icon,
+  onClick,
+}: ActionCardProps) {
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      whileHover={{ y: -4 }}
-      className="group relative overflow-hidden rounded-2xl border border-surface-200/60 bg-white/90 p-6 shadow-card-md backdrop-blur-sm transition-shadow duration-300 hover:shadow-card-lg"
-    >
-      {/* Gradient background on hover */}
-      <div className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${accentClass}`} />
-
-      <div className="relative z-10">
-        <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-surface-50 to-surface-100 text-surface-700 shadow-sm ring-1 ring-surface-200/80 transition-all duration-300 group-hover:shadow-md group-hover:ring-primary-200">
-          <Icon className="h-7 w-7" />
+    <article className="flex flex-col justify-between rounded-2xl border border-surface-200 bg-white p-7 shadow-card-sm transition-[border-color,box-shadow] duration-150 hover:border-surface-300 hover:shadow-card-md">
+      <div>
+        <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-surface-200 bg-surface-50 text-primary-700">
+          <Icon className="h-6 w-6" />
         </div>
 
-        <h3 className="font-heading text-2xl font-semibold text-surface-900">{title}</h3>
+        <h3 className="font-heading text-xl font-bold text-surface-900">{title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-surface-600">{description}</p>
+      </div>
 
+      <div className="mt-8">
         <button
+          type="button"
           onClick={onClick}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-900 px-5 py-3.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-surface-800 active:scale-[0.98]"
+          className="btn-primary btn-md inline-flex w-full items-center justify-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transform-none"
         >
-          {buttonLabel}
-          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          <span>{buttonLabel}</span>
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
-    </motion.article>
+    </article>
   );
 }

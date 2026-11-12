@@ -75,15 +75,24 @@ export default function SupportPage() {
     refetchInterval: 5000,
   });
 
+  const acceptedProposals = useMemo(
+    () => (proposalsQuery.data || []).filter((item) => item.status === "ACCEPTED"),
+    [proposalsQuery.data],
+  );
+
   useEffect(() => {
-    if (!selectedProposalId && proposalsQuery.data?.length) {
-      setSelectedProposalId(proposalsQuery.data[0].id);
+    if (acceptedProposals.length === 0) {
+      if (selectedProposalId !== 0) setSelectedProposalId(0);
+      return;
     }
-  }, [proposalsQuery.data, selectedProposalId]);
+    if (!acceptedProposals.some((item) => item.id === selectedProposalId)) {
+      setSelectedProposalId(acceptedProposals[0].id);
+    }
+  }, [acceptedProposals, selectedProposalId]);
 
   const selectedProposal = useMemo(
-    () => proposalsQuery.data?.find((item) => item.id === selectedProposalId) || null,
-    [proposalsQuery.data, selectedProposalId],
+    () => acceptedProposals.find((item) => item.id === selectedProposalId) || null,
+    [acceptedProposals, selectedProposalId],
   );
 
   const threadQuery = useQuery({
@@ -92,7 +101,7 @@ export default function SupportPage() {
       const response = await messagesApi.listByProposal(selectedProposalId);
       return (response.data?.messages || []) as ThreadMessage[];
     },
-    enabled: selectedProposalId > 0,
+    enabled: Boolean(selectedProposal && selectedProposal.status === "ACCEPTED"),
     refetchInterval: 3000,
   });
 
@@ -231,9 +240,9 @@ export default function SupportPage() {
             <p className="font-heading text-sm font-semibold text-surface-900">Messages</p>
           </div>
 
-          {!proposalsQuery.data?.length ? (
+          {!acceptedProposals.length ? (
             <div className="flex-1 px-5 py-8 text-center text-sm text-surface-500">
-              No project threads available yet. Messaging unlocks when a proposal exists.
+              No active project threads yet. Client-freelancer messaging starts only after a proposal is accepted inside your Project Workspace.
             </div>
           ) : (
             <div className="flex flex-1 flex-col">
@@ -243,7 +252,7 @@ export default function SupportPage() {
                   onChange={(event) => setSelectedProposalId(Number(event.target.value))}
                   className="input text-sm"
                 >
-                  {(proposalsQuery.data || []).map((proposal) => (
+                  {acceptedProposals.map((proposal) => (
                     <option key={proposal.id} value={proposal.id}>
                       {proposal.job.title} | {proposal.status}
                     </option>
@@ -251,18 +260,22 @@ export default function SupportPage() {
                 </select>
 
                 {selectedProposal && (
-                  <div className="flex items-center gap-3 rounded-xl bg-surface-50 p-3 text-sm">
-                    <div>
-                      <span className="font-semibold text-surface-900">Project:</span>{" "}
-                      <span className="text-surface-600">{selectedProposal.job.title}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-50 p-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <span className="font-semibold text-surface-900">Project:</span>{" "}
+                        <span className="text-surface-600">{selectedProposal.job.title}</span>
+                      </div>
+                      <span className="rounded-lg bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700">
+                        {selectedProposal.status}
+                      </span>
                     </div>
-                    <span className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${
-                      selectedProposal.status === "ACCEPTED" ? "bg-success-50 text-success-700" :
-                      selectedProposal.status === "SHORTLISTED" ? "bg-warning-50 text-warning-700" :
-                      "bg-surface-100 text-surface-600"
-                    }`}>
-                      {selectedProposal.status}
-                    </span>
+                    <a
+                      href="/projects"
+                      className="rounded-lg bg-surface-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-surface-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600"
+                    >
+                      Open Studio Workspace
+                    </a>
                   </div>
                 )}
               </div>
@@ -317,7 +330,7 @@ export default function SupportPage() {
                   />
                   <button
                     type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm transition hover:bg-primary-500 disabled:opacity-50"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm transition-colors hover:bg-primary-500 active:scale-[0.98] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
                     onClick={sendMessage}
                     disabled={sendMessageMutation.isPending}
                   >

@@ -33,6 +33,11 @@ model User {
   savedFreelancers           SavedFreelancer[] @relation("ClientSavedFreelancers")
   savedByClients             SavedFreelancer[] @relation("FreelancerSavedByClients")
   hiredJobs                  Job[] @relation("HiredJobs")
+  clientProjects             Project[] @relation("ClientProjects")
+  freelancerProjects         Project[] @relation("FreelancerProjects")
+  projectMessages            ProjectMessage[]
+  deliverableComments        DeliverableComment[]
+  projectActivities          ProjectActivity[]
   taskProgress               UserTaskProgress[]
   taskSubmissions            TaskSubmission[]
   tokenTransactions          TokenTransaction[]
@@ -66,6 +71,7 @@ model Job {
   reviews     Review[]
   savedBy     SavedJob[]
   tokenTransactions TokenTransaction[]
+  project     Project?
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -81,6 +87,7 @@ model Proposal {
   freelancer   User     @relation("FreelancerProposals", fields: [freelancerId], references: [id])
   messages     Message[]
   tokenTransactions TokenTransaction[]
+  project      Project?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -272,4 +279,94 @@ model TokenTransaction {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   job            Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   proposal       Proposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+}
+
+model Project {
+  id              Int               @id @default(autoincrement())
+  jobId           Int               @unique
+  proposalId      Int               @unique
+  clientId        Int
+  freelancerId    Int
+  status          String            @default("ACTIVE")
+  maxRevisions    Int?
+  startedAt       DateTime          @default(now())
+  completedAt     DateTime?
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  proposal        Proposal          @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  client          User              @relation("ClientProjects", fields: [clientId], references: [id])
+  freelancer      User              @relation("FreelancerProjects", fields: [freelancerId], references: [id])
+  milestones      Milestone[]
+  deliverables    Deliverable[]
+  projectMessages ProjectMessage[]
+  activityLogs    ProjectActivity[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Milestone {
+  id           Int           @id @default(autoincrement())
+  projectId    Int
+  title        String
+  description  String?
+  amount       Int           @default(0)
+  dueDate      DateTime?
+  status       String        @default("PENDING")
+  escrowStatus String        @default("UNFUNDED")
+  releasedAt   DateTime?
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliverables Deliverable[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Deliverable {
+  id            Int                  @id @default(autoincrement())
+  projectId     Int
+  milestoneId   Int?
+  title         String
+  description   String?
+  status        String               @default("DRAFT")
+  revisionCount Int                  @default(0)
+  fileUrls      String[]
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+  dueDate       DateTime?
+  project       Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone     Milestone?           @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  comments      DeliverableComment[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+model DeliverableComment {
+  id            Int         @id @default(autoincrement())
+  deliverableId Int
+  authorId      Int
+  body          String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  author        User        @relation(fields: [authorId], references: [id])
+  createdAt     DateTime    @default(now())
+}
+
+model ProjectMessage {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  senderId  Int
+  body      String
+  fileUrl   String?
+  fileName  String?
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender    User     @relation(fields: [senderId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model ProjectActivity {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  actorId   Int
+  type      String
+  metadata  Json?
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor     User     @relation(fields: [actorId], references: [id])
+  createdAt DateTime @default(now())
 }

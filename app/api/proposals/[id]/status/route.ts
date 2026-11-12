@@ -56,6 +56,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const nextStatus = parsed.data.status;
 
   const result = await prisma.$transaction(async (tx) => {
+    let createdProject: { id: number } | null = null;
+
     if (nextStatus === "ACCEPTED") {
       await tx.proposal.updateMany({
         where: {
@@ -69,8 +71,30 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       await tx.job.update({
         where: { id: proposal.jobId },
         data: {
-          status: "ACCEPTED",
+          status: "IN_PROGRESS",
           hiredFreelancerId: proposal.freelancerId,
+        },
+      });
+
+      createdProject = await tx.project.upsert({
+        where: { proposalId: proposal.id },
+        create: {
+          jobId: proposal.jobId,
+          proposalId: proposal.id,
+          clientId: proposal.job.clientId,
+          freelancerId: proposal.freelancerId,
+          status: "ACTIVE",
+        },
+        update: {},
+        select: { id: true },
+      });
+
+      await tx.projectActivity.create({
+        data: {
+          projectId: createdProject.id,
+          actorId: userId,
+          type: "PROJECT_STARTED",
+          metadata: { jobTitle: proposal.job.title },
         },
       });
     }
@@ -90,16 +114,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       },
     });
 
-    return updated;
+    return { updated, createdProject };
   });
 
   await createNotification({
     userId: proposal.freelancerId,
     type: "PROPOSAL_STATUS",
-    title: `Proposal ${nextStatus.toLowerCase()}`,
-    body: `Your proposal for \"${proposal.job.title}\" is now ${nextStatus.toLowerCase()}.`,
+    title: nextStatus === "ACCEPTED" ? "Proposal accepted — Workspace ready" : `Proposal ${nextStatus.toLowerCase()}`,
+    body:
+      nextStatus === "ACCEPTED"
+        ? `Your proposal for \"${proposal.job.title}\" was accepted. Enter your project workspace to start delivering.`
+        : `Your proposal for \"${proposal.job.title}\" is now ${nextStatus.toLowerCase()}.`,
+    link: result.createdProject ? `/projects/${result.createdProject.id}` : null,
     email: proposal.freelancer.email,
   });
 
-  return NextResponse.json({ proposal: result });
+  return NextResponse.json({ proposal: result.updated, project: result.createdProject });
 }

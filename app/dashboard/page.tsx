@@ -4,29 +4,24 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Coins, Briefcase, Search, MessageSquare, Wallet, Code2, Plus, Bell, CheckCheck,
+  Coins, Search, MessageSquare, Wallet, Plus, Bell, CheckCheck,
   BookmarkCheck, UserMinus, Eye
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { FreelancerDashboard } from "@/components/dashboard/freelancer/FreelancerDashboard";
 import {
   adminApi,
   authApi,
   clientProfileApi,
-  freelancerProfileApi,
   jobsApi,
   notificationsApi,
   proposalsApi,
   savedFreelancersApi,
 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-
-const FreelancerAnalytics = dynamic(() => import("@/features/dashboard/components/FreelancerAnalytics").then((mod) => mod.FreelancerAnalytics), {
-  ssr: false,
-  loading: () => <div className="mt-6 skeleton-card" />,
-});
 
 const ClientAnalytics = dynamic(() => import("@/features/dashboard/components/ClientAnalytics").then((mod) => mod.ClientAnalytics), {
   ssr: false,
@@ -114,15 +109,6 @@ type AdminOverview = {
   }>;
 };
 
-type FreelancerProfileSummary = {
-  professionalTitle: string;
-  skills: string;
-  experienceLevel: "ENTRY" | "INTERMEDIATE" | "EXPERT";
-  hourlyRateUsd: number;
-  country: string;
-  city: string;
-};
-
 type ClientProfileSummary = {
   accountType: "INDIVIDUAL" | "COMPANY";
   displayName: string;
@@ -141,6 +127,36 @@ const proposalStatusConfig: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-dvh bg-surface-50 p-8" aria-busy="true" aria-label="Loading dashboard">
+        <div className="mx-auto max-w-6xl space-y-6">
+          <div className="h-10 w-56 rounded-lg bg-surface-200/70 animate-pulse motion-reduce:animate-none" />
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="h-28 rounded-xl bg-surface-200/60 animate-pulse motion-reduce:animate-none" />
+            <div className="h-28 rounded-xl bg-surface-200/60 animate-pulse motion-reduce:animate-none" />
+            <div className="h-28 rounded-xl bg-surface-200/60 animate-pulse motion-reduce:animate-none" />
+            <div className="h-28 rounded-xl bg-surface-200/60 animate-pulse motion-reduce:animate-none" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user?.role === "FREELANCER") {
+    return <FreelancerDashboard />;
+  }
+
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-surface-50 p-8" />}>
+      <ClientAndAdminDashboard />
+    </Suspense>
+  );
+}
+
+function ClientAndAdminDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const proposalIdFromQuery = Number(searchParams.get("proposalId") || "0");
@@ -185,16 +201,6 @@ export default function DashboardPage() {
     },
     enabled: user?.role === "CLIENT" && currentUserId > 0,
     refetchInterval: 5000,
-  });
-
-  const freelancerAppliedJobsQuery = useQuery({
-    queryKey: ["freelancer-applied-jobs", currentUserId],
-    queryFn: async () => {
-      const response = await proposalsApi.inbox();
-      return (response.data?.proposals as ProposalItem[]) || [];
-    },
-    enabled: user?.role === "FREELANCER" && currentUserId > 0,
-    refetchInterval: 7000,
   });
 
   const savedFreelancersQuery = useQuery({
@@ -299,12 +305,17 @@ export default function DashboardPage() {
   const updateProposalStatusMutation = useMutation({
     mutationFn: async ({ proposalId, status }: { proposalId: number; status: "SHORTLISTED" | "ACCEPTED" | "REJECTED" }) =>
       proposalsApi.updateStatus(proposalId, status),
-    onSuccess: async (_, variables) => {
+    onSuccess: async (response: any, variables) => {
       setProposalStatusOverrides((current) => ({
         ...current,
         [variables.proposalId]: variables.status,
       }));
-      setProposalActionStatus(`Proposal updated to ${variables.status}`);
+      const createdProjectId = response?.data?.project?.id;
+      setProposalActionStatus(
+        createdProjectId
+          ? `Proposal accepted — Project workspace #${createdProjectId} created`
+          : `Proposal updated to ${variables.status}`,
+      );
       await proposalsQuery.refetch();
       await myJobsQuery.refetch();
       await savedFreelancersQuery.refetch();
@@ -335,15 +346,6 @@ export default function DashboardPage() {
     enabled: user?.role === "ADMIN",
   });
 
-  const freelancerProfileQuery = useQuery({
-    queryKey: ["dashboard-freelancer-profile"],
-    queryFn: async () => {
-      const response = await freelancerProfileApi.me();
-      return (response.data?.profile as FreelancerProfileSummary | null) || null;
-    },
-    enabled: user?.role === "FREELANCER",
-  });
-
   const clientProfileQuery = useQuery({
     queryKey: ["dashboard-client-profile"],
     queryFn: async () => {
@@ -354,10 +356,7 @@ export default function DashboardPage() {
   });
 
   const quickActions = [
-    { label: "Browse jobs", icon: Search, href: "/jobs", show: user?.role === "FREELANCER" },
     { label: "Browse freelancers", icon: Eye, href: "/freelancers", show: user?.role === "CLIENT" },
-    { label: "Get Jobs", icon: Briefcase, href: "/freelancer/jobs", show: user?.role === "FREELANCER" },
-    { label: "Solve Tasks", icon: Code2, href: "/tasks", show: user?.role === "FREELANCER" },
     { label: "Post a Job", icon: Plus, href: "/client/post-job", show: user?.role === "CLIENT" },
     { label: "Open Wallet", icon: Wallet, href: "/wallet", show: true },
   ].filter((a) => a.show);
@@ -368,22 +367,20 @@ export default function DashboardPage() {
       subtitle={`Welcome ${user?.username ?? "back"}. Review your wallet, role, and quick actions from one focused place.`}
       sidebar={
         <div className="space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-surface-500">Workspace</p>
+          <p className="text-xs font-semibold text-surface-500">Workspace</p>
           <nav className="space-y-1">
             {[
               { label: "Overview", href: "/dashboard", icon: Search },
-              ...(user?.role === "FREELANCER" ? [{ label: "Get Jobs", href: "/freelancer/jobs", icon: Briefcase }] : []),
               ...(user?.role === "CLIENT" ? [{ label: "Post a Job", href: "/client/post-job", icon: Plus }] : []),
               { label: "Freelancers", href: "/freelancers", icon: Eye },
-              ...(user?.role === "FREELANCER" ? [{ label: "Job Board", href: "/jobs", icon: Search }] : []),
               { label: "Messages & Support", href: "/support", icon: MessageSquare },
               { label: "Wallet", href: "/wallet", icon: Wallet },
-              ...(user?.role === "FREELANCER" ? [{ label: "Coding Tasks", href: "/tasks", icon: Code2 }] : []),
             ].map((item) => (
               <button
                 key={item.href}
+                type="button"
                 onClick={() => router.push(item.href)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-surface-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-surface-600 transition-colors hover:bg-primary-50 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
@@ -423,8 +420,9 @@ export default function DashboardPage() {
             {quickActions.map((action) => (
               <button
                 key={action.href}
+                type="button"
                 onClick={() => router.push(action.href)}
-                className="btn-primary btn-sm inline-flex items-center gap-1.5"
+                className="btn-primary btn-sm inline-flex items-center gap-1.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <action.icon className="h-3.5 w-3.5" />
                 {action.label}
@@ -501,7 +499,7 @@ export default function DashboardPage() {
                   { label: "Timezone", value: clientProfileQuery.data.timezone, sub: clientProfileQuery.data.phone || undefined },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl border border-surface-200/60 bg-surface-50/50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">{item.label}</p>
+                    <p className="text-xs font-medium text-surface-500">{item.label}</p>
                     <p className="mt-1 font-medium text-surface-900">{item.value}</p>
                     {item.sub ? <p className="mt-1 text-sm text-surface-500">{item.sub}</p> : null}
                   </div>
@@ -517,12 +515,20 @@ export default function DashboardPage() {
           {/* Client Workspace */}
           <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-6 card-surface p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-heading text-xl font-semibold text-surface-900">Client workspace</h2>
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="font-heading text-xl font-semibold text-surface-900">Client workspace</h2>
+                <Link
+                  href="/projects"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  Open Project Workspaces
+                </Link>
+              </div>
               <div className="flex gap-1.5 rounded-xl bg-surface-100 p-1">
                 <button
                   type="button"
                   onClick={() => setClientViewTab("proposals")}
-                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     clientViewTab === "proposals" ? "bg-white text-surface-900 shadow-card-sm" : "text-surface-500 hover:text-surface-700"
                   }`}
                 >
@@ -531,7 +537,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setClientViewTab("saved")}
-                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     clientViewTab === "saved" ? "bg-white text-surface-900 shadow-card-sm" : "text-surface-500 hover:text-surface-700"
                   }`}
                 >
@@ -560,7 +566,7 @@ export default function DashboardPage() {
                           key={status}
                           type="button"
                           onClick={() => setProposalStatusFilter(status)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                             proposalStatusFilter === status
                               ? "bg-surface-900 text-white shadow-sm"
                               : "bg-surface-100 text-surface-600 hover:bg-surface-200"
@@ -619,6 +625,14 @@ export default function DashboardPage() {
                                 onClick={() => toggleSavedFreelancerMutation.mutate(proposal.freelancer.id)}>
                                 <BookmarkCheck className="h-3.5 w-3.5" /> Save
                               </button>
+                              {displayStatus === "ACCEPTED" && (
+                                <Link
+                                  href="/projects"
+                                  className="btn-primary btn-sm"
+                                >
+                                  Open Workspace
+                                </Link>
+                              )}
                             </div>
                           </article>
                         );
@@ -668,82 +682,6 @@ export default function DashboardPage() {
             ) : null}
           </motion.section>
         </>
-      ) : null}
-
-      {/* FREELANCER Section */}
-      {user?.role === "FREELANCER" ? (
-        <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-6 card-surface p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-heading text-xl font-semibold text-surface-900">Freelancer profile</h2>
-            <button onClick={() => router.push("/onboarding/freelancer?edit=1")} className="btn-secondary btn-md">
-              {freelancerProfileQuery.data ? "Edit profile" : "Create profile"}
-            </button>
-          </div>
-
-          {freelancerProfileQuery.data ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {[
-                { label: "Title", value: freelancerProfileQuery.data.professionalTitle, sub: freelancerProfileQuery.data.experienceLevel },
-                { label: "Skills", value: freelancerProfileQuery.data.skills },
-                { label: "Rate", value: `$${freelancerProfileQuery.data.hourlyRateUsd}/hr` },
-                { label: "Location", value: `${freelancerProfileQuery.data.city}, ${freelancerProfileQuery.data.country}` },
-              ].map((item) => (
-                <div key={item.label} className="rounded-xl border border-surface-200/60 bg-surface-50/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-surface-400">{item.label}</p>
-                  <p className="mt-1 font-medium text-surface-900">{item.value}</p>
-                  {item.sub ? <p className="mt-1 text-sm text-surface-500">{item.sub}</p> : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-surface-500">Complete your freelancer profile to receive better job matches and client trust.</p>
-          )}
-
-          <FreelancerAnalytics />
-
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="mt-6 card-surface p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-heading text-xl font-semibold text-surface-900">Jobs applied</h2>
-              <button onClick={() => router.push("/freelancer/jobs")} className="btn-secondary btn-sm">
-                Explore more jobs
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {(freelancerAppliedJobsQuery.data || []).map((proposal) => (
-                <article key={proposal.id} className="rounded-xl border border-surface-200/80 bg-white p-4 transition-colors hover:bg-surface-50/50">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-surface-900">{proposal.job?.title || "Job"}</p>
-                      <p className="text-xs text-surface-500">
-                        Client: {proposal.job?.client?.username || proposal.job?.client?.name || "Unknown"}
-                      </p>
-                    </div>
-                    <span className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ring-1 ${proposalStatusConfig[proposal.status] || "bg-surface-100 text-surface-700"}`}>
-                      {proposal.status}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-surface-500">
-                    <p>Applied: {new Date(proposal.createdAt).toLocaleString()}</p>
-                    <p>Budget: ₹{proposal.job?.budget || 0}</p>
-                  </div>
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={() => proposal.job?.id && router.push(`/jobs/${proposal.job.id}`)}
-                    >
-                      View job
-                    </button>
-                  </div>
-                </article>
-              ))}
-              {!freelancerAppliedJobsQuery.data?.length ? (
-                <p className="text-sm text-surface-500">No applications yet. Apply to jobs and track them here.</p>
-              ) : null}
-            </div>
-          </motion.section>
-        </motion.section>
       ) : null}
 
       {/* ADMIN Section */}

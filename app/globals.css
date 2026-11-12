@@ -1,3 +1,6 @@
+@import "./tokens.css";
+@import "./base.css" layer(base);
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,24 +12,25 @@
     --color-border: #e2e8f0;
     --color-text: #0f172a;
     --color-text-muted: #64748b;
-    --color-accent: #4f46e5;
-    --color-accent-light: #6366f1;
+    --color-accent: #4338ca;
+    --color-accent-light: #4f46e5;
     --ink-900: #0f172a;
     --outline: rgba(15, 23, 42, 0.06);
-    --surface: rgba(255, 255, 255, 0.92);
-    --surface-elevated: rgba(255, 255, 255, 0.96);
-    --gradient-hero: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #09111f 100%);
-    --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
-    --gradient-accent: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-    --gradient-surface: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    --surface: rgba(255, 255, 255, 0.95);
+    --surface-elevated: #ffffff;
+    --gradient-hero: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
+    --gradient-primary: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    --gradient-accent: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+    --gradient-surface: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
     --radius-card: 1rem;
-    --radius-card-lg: 1.5rem;
+    --radius-card-lg: 1.25rem;
   }
 
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
   }
 
   * {
@@ -37,9 +41,10 @@
     min-height: 100vh;
     font-family: var(--font-manrope, "Manrope", system-ui, sans-serif);
     color: var(--color-text);
-    background: var(--gradient-surface);
+    background: #fafbfc;
     font-feature-settings: "kern" 1, "liga" 1;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
   }
 
   h1,
@@ -82,15 +87,15 @@
      BUTTONS
      ═══════════════════════════════════════════ */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white shadow-md shadow-primary-600/20 hover:bg-primary-500 hover:shadow-lg hover:shadow-primary-600/25;
+    @apply btn bg-primary-600 text-white shadow-sm hover:bg-primary-500 hover:shadow active:bg-primary-700;
   }
 
   .btn-secondary {
-    @apply btn border border-surface-200 bg-white text-surface-700 hover:border-surface-300 hover:bg-surface-50 hover:shadow-card-sm;
+    @apply btn border border-surface-200 bg-white text-surface-700 hover:border-surface-300 hover:bg-surface-50 hover:text-surface-900;
   }
 
   .btn-ghost {
@@ -98,11 +103,11 @@
   }
 
   .btn-danger {
-    @apply btn bg-danger-600 text-white shadow-md shadow-danger-600/20 hover:bg-danger-500;
+    @apply btn bg-danger-600 text-white shadow-sm hover:bg-danger-500 active:bg-danger-700;
   }
 
   .btn-success {
-    @apply btn bg-success-600 text-white shadow-md shadow-success-600/20 hover:bg-success-500;
+    @apply btn bg-success-600 text-white shadow-sm hover:bg-success-500 active:bg-success-700;
   }
 
   .btn-sm {
@@ -110,15 +115,15 @@
   }
 
   .btn-md {
-    @apply px-4 py-2.5 text-sm;
+    @apply px-4 py-2 text-sm;
   }
 
   .btn-lg {
-    @apply px-6 py-3 text-base;
+    @apply px-6 py-2.5 text-base;
   }
 
   .btn-xl {
-    @apply px-8 py-3.5 text-base;
+    @apply px-8 py-3 text-base;
   }
 
   /* ═══════════════════════════════════════════
@@ -129,24 +134,23 @@
   }
 
   .card-hover {
-    @apply card transition-all duration-300 hover:border-surface-300 hover:shadow-card-md hover:-translate-y-0.5;
+    @apply card transition-[border-color,box-shadow,transform] duration-200 motion-reduce:transition-none hover:border-surface-300 hover:shadow-card-md hover:-translate-y-0.5;
   }
 
   .card-surface {
     background: var(--surface);
     border: 1px solid var(--outline);
     border-radius: var(--radius-card-lg);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -4px rgba(15, 23, 42, 0.06);
-    backdrop-filter: blur(8px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 6px 18px -4px rgba(15, 23, 42, 0.04);
   }
 
   .card-glass {
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: var(--radius-card-lg);
-    box-shadow: 0 4px 24px -2px rgba(15, 23, 42, 0.06);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .card-elevated {
@@ -158,25 +162,25 @@
   }
 
   .card-interactive:hover {
-    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08), 0 8px 32px -4px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08), 0 8px 24px -4px rgba(99, 102, 241, 0.08);
   }
 
   /* ═══════════════════════════════════════════
      FORM ELEMENTS
      ═══════════════════════════════════════════ */
   .input {
-    @apply w-full rounded-xl border border-surface-200 bg-white px-4 py-2.5 text-sm text-surface-900 placeholder-surface-400 shadow-card-sm transition-all duration-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:shadow-card-glow;
+    @apply w-full rounded-xl border border-surface-200 bg-white px-4 py-2.5 text-sm text-surface-900 placeholder-surface-400 shadow-card-sm transition-[border-color,box-shadow] duration-150 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:bg-surface-50 disabled:text-surface-400;
   }
 
   .label {
-    @apply mb-2 block text-sm font-semibold text-surface-700;
+    @apply mb-1.5 block text-xs font-medium text-surface-600;
   }
 
   /* ═══════════════════════════════════════════
      BADGES
      ═══════════════════════════════════════════ */
   .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 
   .badge-blue {
@@ -188,7 +192,7 @@
   }
 
   .badge-slate {
-    @apply badge bg-surface-100 text-surface-600;
+    @apply badge border border-surface-200 bg-surface-100 text-surface-700;
   }
 
   .badge-amber {
@@ -207,7 +211,7 @@
      SECTION LABELS
      ═══════════════════════════════════════════ */
   .section-label {
-    @apply mb-3 text-xs font-bold uppercase tracking-widest text-primary-600;
+    @apply mb-2 block text-xs font-semibold text-primary-700;
   }
 
   .pill {
@@ -313,6 +317,35 @@
     background-image: radial-gradient(at 40% 20%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
       radial-gradient(at 80% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
       radial-gradient(at 0% 50%, rgba(99, 102, 241, 0.08) 0px, transparent 50%);
+  }
+
+  .hero-stripe-canvas {
+    position: absolute;
+    top: -120px;
+    left: -5%;
+    right: -5%;
+    height: 560px;
+    transform: skewY(-10deg);
+    transform-origin: top left;
+    background-color: #ff6b6b;
+    background-image:
+      radial-gradient(ellipse at 18% 12%, #4338ca 0%, transparent 50%),
+      radial-gradient(ellipse at 54% 8%, #e11d48 0%, transparent 52%),
+      radial-gradient(ellipse at 88% 14%, #dc2626 0%, transparent 48%),
+      radial-gradient(ellipse at 8% 58%, #93c5fd 0%, transparent 44%),
+      radial-gradient(ellipse at 32% 64%, #f472b6 0%, transparent 48%),
+      radial-gradient(ellipse at 14% 88%, #fde047 0%, transparent 52%),
+      radial-gradient(ellipse at 44% 84%, #fdba74 0%, transparent 48%),
+      radial-gradient(ellipse at 82% 72%, #818cf8 0%, transparent 52%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-stripe-canvas {
+      height: 660px;
+      transform: skewY(-10.5deg);
+    }
   }
 
   .glass-sm {

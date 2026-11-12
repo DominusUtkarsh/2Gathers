@@ -219,4 +219,97 @@ export const clientProfileApi = {
   }) => localApi.post("/api/client-profile", payload),
 };
 
+export const projectsApi = {
+  list: () => localApi.get("/api/projects"),
+  get: (id: number | string) => localApi.get(`/api/projects/${id}`),
+  update: (
+    id: number | string,
+    data: {
+      status?: "ACTIVE" | "IN_REVIEW" | "COMPLETED" | "DISPUTED" | "CANCELLED";
+      maxRevisions?: number | null;
+    },
+  ) => localApi.patch(`/api/projects/${id}`, data),
+  milestones: {
+    list: (projectId: number | string) => localApi.get(`/api/projects/${projectId}/milestones`),
+    create: (
+      projectId: number | string,
+      data: {
+        title: string;
+        description?: string;
+        amount: number;
+        dueDate?: string | null;
+        fundEscrow?: boolean;
+      },
+    ) => localApi.post(`/api/projects/${projectId}/milestones`, data),
+    update: (
+      projectId: number | string,
+      milestoneId: number | string,
+      data: {
+        title?: string;
+        description?: string | null;
+        amount?: number;
+        dueDate?: string | null;
+        status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "RELEASED";
+        action?: "FUND_ESCROW";
+      },
+    ) => localApi.patch(`/api/projects/${projectId}/milestones/${milestoneId}`, data),
+    remove: (projectId: number | string, milestoneId: number | string) =>
+      localApi.delete(`/api/projects/${projectId}/milestones/${milestoneId}`),
+    release: (projectId: number | string, milestoneId: number | string) =>
+      localApi.post(`/api/projects/${projectId}/milestones/${milestoneId}/release`, {}),
+  },
+  deliverables: {
+    list: (projectId: number | string) => localApi.get(`/api/projects/${projectId}/deliverables`),
+    get: (projectId: number | string, deliverableId: number | string) =>
+      localApi.get(`/api/projects/${projectId}/deliverables/${deliverableId}`),
+    create: (
+      projectId: number | string,
+      data: {
+        title: string;
+        description?: string;
+        milestoneId?: number | null;
+        dueDate?: string | null;
+        fileUrls?: string[];
+        submitNow?: boolean;
+      },
+    ) => localApi.post(`/api/projects/${projectId}/deliverables`, data),
+    update: (
+      projectId: number | string,
+      deliverableId: number | string,
+      data: {
+        title?: string;
+        description?: string | null;
+        milestoneId?: number | null;
+        dueDate?: string | null;
+        fileUrls?: string[];
+        status?: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "REVISION_REQUESTED" | "RESUBMITTED" | "APPROVED";
+        feedback?: string;
+      },
+    ) => localApi.patch(`/api/projects/${projectId}/deliverables/${deliverableId}`, data),
+    remove: (projectId: number | string, deliverableId: number | string) =>
+      localApi.delete(`/api/projects/${projectId}/deliverables/${deliverableId}`),
+    comments: {
+      list: (projectId: number | string, deliverableId: number | string) =>
+        localApi.get(`/api/projects/${projectId}/deliverables/${deliverableId}/comments`),
+      create: (projectId: number | string, deliverableId: number | string, body: string) =>
+        localApi.post(`/api/projects/${projectId}/deliverables/${deliverableId}/comments`, { body }),
+    },
+  },
+  messages: {
+    list: (projectId: number | string) => localApi.get(`/api/projects/${projectId}/messages`),
+    send: (
+      projectId: number | string,
+      data: { body: string; fileUrl?: string | null; fileName?: string | null },
+    ) => localApi.post(`/api/projects/${projectId}/messages`, data),
+  },
+  activity: (projectId: number | string) => localApi.get(`/api/projects/${projectId}/activity`),
+  uploadFile: (projectId: number | string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return localApi.post(`/api/projects/${projectId}/upload`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+};
+
 export default api;

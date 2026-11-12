@@ -15,24 +15,21 @@ const topFreelancers = [
   { rank: 5, name: "Vikram Patel", category: "Blockchain", score: 89, earnings: "₹6,85,000" },
 ];
 
-const rankConfig: Record<number, { icon: typeof Trophy; gradient: string; ring: string; badge: string }> = {
+const rankConfig: Record<number, { icon: typeof Trophy; badge: string; ringColor: string }> = {
   1: {
     icon: Trophy,
-    gradient: "from-yellow-400 to-amber-500",
-    ring: "ring-amber-300",
-    badge: "bg-gradient-to-r from-yellow-400 to-amber-500 text-white",
+    badge: "bg-warning-50 text-warning-800 border border-warning-200",
+    ringColor: "#d97706",
   },
   2: {
     icon: Medal,
-    gradient: "from-gray-300 to-gray-400",
-    ring: "ring-gray-300",
-    badge: "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800",
+    badge: "bg-surface-100 text-surface-800 border border-surface-200",
+    ringColor: "#64748b",
   },
   3: {
     icon: Award,
-    gradient: "from-amber-600 to-orange-700",
-    ring: "ring-amber-400",
-    badge: "bg-gradient-to-r from-amber-600 to-orange-700 text-white",
+    badge: "bg-amber-50 text-amber-800 border border-amber-200",
+    ringColor: "#b45309",
   },
 };
 
@@ -41,24 +38,28 @@ export default function LeaderboardPage() {
 
   return (
     <DashboardLayout
-      title="Top Freelancers Leaderboard"
-      subtitle="See the best performers on 2gathers based on delivery consistency, client ratings, and earnings."
+      title="Performance Leaderboard"
+      subtitle="Recognizing top platform contributors based on project completion, client ratings, and overall milestone consistency."
     >
-      <section className="card-surface p-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <section className="rounded-2xl border border-surface-200 bg-white p-6 shadow-card-sm">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-surface-100 pb-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-warning-700">
-              Platform ranking
-            </p>
-            <h2 className="mt-1 font-heading text-xl font-semibold text-surface-900">
-              Live leaderboard view
+            <h2 className="font-heading text-xl font-bold text-surface-900">
+              Verified top performers
             </h2>
+            <p className="mt-0.5 text-xs text-surface-500">Calculated over rolling 90-day verified delivery milestones.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/start" className="btn-secondary btn-md">
+            <Link
+              href="/start"
+              className="btn-secondary btn-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
               Back to Start
             </Link>
-            <button onClick={() => router.push("/jobs")} className="btn-primary btn-md">
+            <button
+              onClick={() => router.push("/jobs")}
+              className="btn-primary btn-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            >
               Browse Jobs
             </button>
           </div>
@@ -76,55 +77,50 @@ export default function LeaderboardPage() {
             return (
               <motion.article
                 key={freelancer.rank}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.06 }}
-                className={`group relative overflow-hidden rounded-2xl border bg-white p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-md ${
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.04 }}
+                className={`group relative rounded-xl border p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-md motion-reduce:transform-none ${
                   isTopThree
-                    ? "border-surface-200/80 shadow-card-sm"
-                    : "border-surface-200/60 shadow-card-sm"
+                    ? "border-surface-200 bg-white shadow-card-sm"
+                    : "border-surface-200/80 bg-surface-50/50"
                 }`}
               >
-                {isTopThree && (
-                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-warning-400 to-transparent" />
-                )}
-
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
                   {/* Rank badge */}
                   <div
                     className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl font-heading text-sm font-bold ${
-                      config
-                        ? config.badge
-                        : "bg-surface-100 text-surface-600"
+                      config ? config.badge : "bg-surface-100 text-surface-700 border border-surface-200"
                     }`}
                   >
                     #{freelancer.rank}
                   </div>
 
                   {/* Avatar */}
-                  <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-md ${
-                    isTopThree
-                      ? `bg-gradient-to-br ${config?.gradient || "from-primary-500 to-accent-500"}`
-                      : "bg-gradient-to-br from-primary-500 to-accent-500"
-                  }`}>
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-700 text-xs font-bold text-white shadow-sm">
                     {initials}
                   </div>
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-heading text-lg font-semibold text-surface-900">
+                    <h3 className="font-heading text-base font-bold text-surface-900">
                       {freelancer.name}
                     </h3>
-                    <p className="text-sm text-surface-500">{freelancer.category}</p>
+                    <p className="text-xs text-surface-500">{freelancer.category}</p>
                   </div>
 
                   {/* Score */}
                   <div className="text-center">
-                    <p className="text-xs text-surface-500">Score</p>
+                    <p className="text-xs text-surface-500 font-medium">Quality score</p>
                     <div className="relative mt-1">
                       {/* Progress ring */}
-                      <div className="mx-auto h-14 w-14">
-                        <svg viewBox="0 0 36 36" className="h-14 w-14 -rotate-90">
+                      <div className="mx-auto h-12 w-12">
+                        <svg
+                          viewBox="0 0 36 36"
+                          className="h-12 w-12 -rotate-90"
+                          aria-hidden="true"
+                          role="img"
+                        >
                           <circle
                             cx="18"
                             cy="18"
@@ -138,13 +134,13 @@ export default function LeaderboardPage() {
                             cy="18"
                             r="15.5"
                             fill="none"
-                            stroke={freelancer.score >= 95 ? "#10b981" : freelancer.score >= 90 ? "#6366f1" : "#f59e0b"}
+                            stroke={freelancer.score >= 95 ? "#059669" : freelancer.score >= 90 ? "#4338ca" : "#d97706"}
                             strokeWidth="3"
                             strokeDasharray={`${(freelancer.score / 100) * 97.4} 97.4`}
                             strokeLinecap="round"
                           />
                         </svg>
-                        <span className="absolute inset-0 flex items-center justify-center font-heading text-sm font-bold text-surface-900">
+                        <span className="absolute inset-0 flex items-center justify-center font-heading text-xs font-bold text-surface-900">
                           {freelancer.score}
                         </span>
                       </div>
@@ -153,15 +149,15 @@ export default function LeaderboardPage() {
 
                   {/* Earnings & CTA */}
                   <div className="flex flex-col items-end gap-2">
-                    <p className="font-heading text-lg font-bold text-success-600">
+                    <p className="font-heading text-base font-bold text-success-700">
                       {freelancer.earnings}
                     </p>
                     <button
                       type="button"
                       onClick={() => router.push("/freelancers")}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-surface-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-surface-800 active:scale-[0.98]"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 bg-white px-3 py-1.5 text-xs font-semibold text-surface-800 shadow-sm transition-colors duration-150 hover:bg-surface-50 hover:border-surface-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="h-3.5 w-3.5 text-surface-500" />
                       View profile
                     </button>
                   </div>

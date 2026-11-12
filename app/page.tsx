@@ -1,29 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BriefcaseBusiness, Building2, CheckCircle2, ChevronRight, Globe, Lock, Shield, Sparkles, Star, Zap } from "lucide-react";
-import { motion, useInView } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
+  Lock,
+  Search,
+  Shield,
+  Sparkles,
+  Star,
+  TrendingUp,
+  Zap,
+  Coins,
+  Check,
+  Clock,
+  Award,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
 import { mockJobs } from "@/lib/db";
+import { TOKEN_PRICE_INR } from "@/lib/tokenomics";
 
 const features = [
   {
     icon: Sparkles,
     title: "AI-Driven Match Quality",
-    description: "Shortlist faster with high-signal recommendations based on role fit, skills, and hiring intent.",
+    description: "Match with high-intent opportunities and candidates based on verified skills, portfolio history, and milestone fit.",
   },
   {
     icon: Shield,
-    title: "Reliable Hiring Workflow",
-    description: "From discovery to payout, every step is structured to reduce friction and improve confidence.",
+    title: "Escrow Milestone Security",
+    description: "Client funds are locked safely in token-backed escrow and only disbursed when project criteria are fully verified.",
   },
   {
     icon: Zap,
-    title: "Token-Powered Actions",
-    description: "Use a unified token system for premium applications, boosts, and wallet-based activity.",
+    title: "Token-Powered Accountability",
+    description: "Every proposal, hiring commitment, and task completion is recorded on a transparent marketplace ledger.",
   },
 ];
 
@@ -31,104 +50,75 @@ const roleTracks = [
   {
     icon: BriefcaseBusiness,
     title: "For Freelancers",
-    points: ["Create a focused profile", "Get matched with relevant work", "Track earnings and wallet activity"],
+    subtitle: "Build reputation, submit high-signal proposals, and receive guaranteed on-time milestone payouts.",
+    points: [
+      "Verifiable on-chain profile & skill benchmarks",
+      "Low competition from verified proposal quotas",
+      "Instant token withdrawals & milestone protection",
+    ],
     ctaLabel: "Start as Freelancer",
     href: "/register?role=FREELANCER",
+    badge: "Talent Portal",
   },
   {
     icon: Building2,
     title: "For Clients",
-    points: ["Post clear project briefs", "Receive better-fit proposals", "Manage hiring from one dashboard"],
+    subtitle: "Publish project briefs, interview top specialists, and disburse payouts with complete confidence.",
+    points: [
+      "Structured briefs that attract serious proposals",
+      "Automated skill verification via coding challenges",
+      "Escrow protection with dispute mediation",
+    ],
     ctaLabel: "Start as Client",
     href: "/register?role=CLIENT",
+    badge: "Hiring Portal",
   },
 ];
 
 const steps = [
-  { n: "01", title: "Set Up in Minutes", body: "Choose your role and launch with a profile that communicates your value clearly." },
-  { n: "02", title: "Move with Better Signal", body: "Match, review, and act on opportunities with less noise and faster decisions." },
-  { n: "03", title: "Scale with Visibility", body: "Monitor projects, payouts, and platform outcomes from one professional workspace." },
+  {
+    n: "01",
+    title: "Create a verified profile",
+    body: "Choose your role as a client or freelancer. Set skills, hourly expectations, and configure your token wallet.",
+  },
+  {
+    n: "02",
+    title: "Publish or apply with signal",
+    body: "Clients post clear milestone briefs. Freelancers stake application tokens to ensure high-quality, focused proposals.",
+  },
+  {
+    n: "03",
+    title: "Deliver and disburse escrow",
+    body: "Collaborate through direct messaging, review code or creative deliverables, and release milestone funds instantly.",
+  },
 ];
 
 const testimonials = [
-  { name: "Alex Chen", role: "Full-stack freelancer", quote: "Proposal flow is cleaner, and I can focus on opportunities that truly match my profile." },
-  { name: "Sarah Rodriguez", role: "Hiring manager", quote: "Our team moves faster because project posting and candidate review are in one structured flow." },
-  { name: "Marcus Williams", role: "Startup founder", quote: "2Gathers feels production-ready. The product language and UI both communicate trust." },
+  {
+    name: "Alex Chen",
+    role: "Full-Stack Engineer",
+    rate: "$75/hr",
+    quote: "The token stake requirement completely eliminated low-effort spam proposals. Every client I've connected with here has had a clear scope and approved milestones on time.",
+  },
+  {
+    name: "Sarah Rodriguez",
+    role: "Head of Product at Studio North",
+    rate: "Client",
+    quote: "We hired two senior React engineers in under 72 hours. Escrow milestones gave our leadership team complete transparency on deliverables before releasing payment.",
+  },
+  {
+    name: "Marcus Williams",
+    role: "Technical Founder",
+    rate: "Client",
+    quote: "2Gathers is what freelance marketplaces should have been from day one: clean typography, zero fake metrics, and an escrow structure built on real accountability.",
+  },
 ];
 
-function AnimatedCounter({ target, suffix = "" }: { target: string; suffix?: string }) {
-  return (
-    <motion.span
-      initial={{ opacity: 0, y: 8 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-    >
-      {target}{suffix}
-    </motion.span>
-  );
-}
-
-function StatItem({ value, label, delay = 0 }: { value: string; label: string; delay?: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.4, delay }}
-      className="text-center"
-    >
-      <div className="font-heading text-3xl font-bold tabular-nums text-white">{value}</div>
-      <div className="mt-1.5 text-sm text-surface-400">{label}</div>
-    </motion.div>
-  );
-}
-
-function getRoleHeroContent(role: "CLIENT" | "FREELANCER" | null) {
-  if (role === "CLIENT") {
-    return {
-      badge: "Client-first workspace for professional hiring",
-      headlineTop: "Hire with precision.",
-      headlineAccent: "Deliver with confidence.",
-      subtitle:
-        "Post clear projects, review better-fit proposals, and manage hiring decisions from one structured dashboard.",
-      primaryCtaHref: "/register?role=CLIENT",
-      primaryCtaLabel: "Get Started as Client",
-      secondaryCtaHref: "/client/post-job",
-      secondaryCtaLabel: "Post a Job",
-    };
-  }
-
-  if (role === "FREELANCER") {
-    return {
-      badge: "Freelancer-first workspace for focused growth",
-      headlineTop: "Win better projects.",
-      headlineAccent: "Grow with clarity.",
-      subtitle:
-        "Find role-fit opportunities faster, submit stronger proposals, and track your progress with less friction.",
-      primaryCtaHref: "/register?role=FREELANCER",
-      primaryCtaLabel: "Get Started as Freelancer",
-      secondaryCtaHref: "/freelancer/jobs",
-      secondaryCtaLabel: "Explore Matches",
-    };
-  }
-
-  return {
-    badge: "Professional freelance marketplace for modern teams",
-    headlineTop: "Hire better.",
-    headlineAccent: "Work smarter.",
-    subtitle:
-      "2Gathers helps freelancers and clients connect through a clearer workflow, stronger trust signals, and role-specific experiences.",
-    primaryCtaHref: "/register",
-    primaryCtaLabel: "Get Started",
-    secondaryCtaHref: "/jobs",
-    secondaryCtaLabel: "Browse Jobs",
-  };
-}
-
 export default function HomePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [roleFromQuery, setRoleFromQuery] = useState<"CLIENT" | "FREELANCER" | null>(null);
+  const [heroEmail, setHeroEmail] = useState("");
 
   useEffect(() => {
     const role = new URLSearchParams(window.location.search).get("role");
@@ -146,315 +136,570 @@ export default function HomePage() {
         ? roleFromQuery
         : null;
 
-  const hero = getRoleHeroContent(scopedRole);
+  function handleHeroStart(e: FormEvent) {
+    e.preventDefault();
+    if (user) {
+      router.push("/dashboard");
+      return;
+    }
+    const cleanEmail = heroEmail.trim();
+    router.push(cleanEmail ? `/register?email=${encodeURIComponent(cleanEmail)}` : "/register");
+  }
 
   return (
-    <div className="min-h-screen bg-white text-surface-900">
+    <div className="min-h-screen bg-surface-50 text-surface-900">
       <Navbar />
 
-      {/* ═══════ HERO ═══════ */}
-      <section className="relative min-h-screen overflow-hidden bg-surface-950 pt-24">
-        <div className="absolute inset-0 dot-grid opacity-25" />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(99,102,241,0.18) 0%, transparent 70%)" }} />
-        {/* Floating gradient orbs */}
-        <div className="absolute -left-40 top-20 h-80 w-80 rounded-full bg-primary-600/15 blur-[120px] animate-float" />
-        <div className="absolute right-0 top-40 h-60 w-60 rounded-full bg-accent-500/10 blur-[100px] animate-float" style={{ animationDelay: "3s" }} />
+      {/* ═══════ HERO: DIAGONAL MESH & OVERLAPPING WORKSPACE STAGE ═══════ */}
+      <section className="relative overflow-hidden border-b border-surface-200 bg-white pb-20 pt-28 sm:pt-32 lg:pb-32 lg:pt-36">
+        {/* Diagonal vibrant gradient canvas */}
+        <div className="hero-stripe-canvas" aria-hidden="true" />
 
-        <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-4 pb-24 pt-16 text-center sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
-            <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-surface-700/50 bg-surface-800/30 px-4 py-1.5 text-xs font-medium text-surface-400 backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary-400 animate-pulse" />
-              {hero.badge}
-            </div>
-
-            <h1 className="max-w-4xl font-heading text-5xl font-bold leading-[1.1] tracking-tight text-white md:text-6xl lg:text-7xl">
-              {hero.headlineTop}
-              <br />
-              <span className="bg-gradient-to-r from-primary-400 via-accent-400 to-primary-300 bg-clip-text text-transparent">
-                {hero.headlineAccent}
-              </span>
-            </h1>
-
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-surface-400 md:text-xl">
-              {hero.subtitle}
-            </p>
-
-            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href={hero.primaryCtaHref}
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-primary-600/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary-600/30 active:scale-[0.98]"
-              >
-                {hero.primaryCtaLabel}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <Link
-                href={hero.secondaryCtaHref}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-surface-700 bg-transparent px-8 py-3.5 text-base font-semibold text-surface-300 transition-all duration-200 hover:border-surface-500 hover:bg-surface-800 hover:text-white"
-              >
-                {hero.secondaryCtaLabel}
-              </Link>
-            </div>
-
-            <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-surface-500">
-              {[
-                { icon: Shield, label: "Secure workflow" },
-                { icon: Lock, label: "Verified accounts" },
-                { icon: Globe, label: "Built for remote teams" },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-surface-500" />
-                  {label}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-xs font-semibold uppercase tracking-[0.14em] text-surface-600">
-              <span>Studio North</span>
-              <span>Orbit Works</span>
-              <span>Northstar HR</span>
-              <span>Inkwell Labs</span>
-            </div>
-          </motion.div>
-
-          {/* Stats panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.55 }}
-            className="mt-16 grid w-full max-w-4xl grid-cols-2 gap-6 rounded-2xl border border-surface-800/80 bg-surface-900/60 p-8 backdrop-blur-md md:grid-cols-4"
-          >
-            <StatItem value={`${mockJobs.length}+`} label="Live jobs" delay={0} />
-            <StatItem value="95%" label="Match rate" delay={0.1} />
-            <StatItem value="24/7" label="Platform access" delay={0.2} />
-            <StatItem value="1 flow" label="Unified structure" delay={0.3} />
-          </motion.div>
+        {/* Subtle architectural structural lines */}
+        <div className="pointer-events-none absolute inset-0 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-hidden="true">
+          <div className="grid h-full grid-cols-4 border-x border-surface-900/[0.04]">
+            <div className="border-r border-surface-900/[0.04]" />
+            <div className="border-r border-surface-900/[0.04]" />
+            <div className="border-r border-surface-900/[0.04]" />
+            <div />
+          </div>
         </div>
-      </section>
 
-      {/* ═══════ FEATURES ═══════ */}
-      <section className="border-t border-surface-100 bg-white py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }} className="mb-16 text-center">
-            <p className="section-label">Platform capabilities</p>
-            <h2 className="font-heading text-4xl font-bold tracking-tight text-surface-900">
-              Everything feels closer together.
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-lg text-surface-500">
-              A single product system for discovery, hiring, proposals, and wallet operations.
-            </p>
-          </motion.div>
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-8">
+            {/* Left Content */}
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="lg:col-span-6"
+            >
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-1 text-xs font-semibold text-surface-900 shadow-card-sm">
+                <span className="flex h-2 w-2 rounded-full bg-primary-600" />
+                2Gathers Escrow &middot; Milestone Marketplace
+              </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
-            {features.map((feature, index) => (
-              <motion.article
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: index * 0.08 }}
-                className="group relative overflow-hidden rounded-2xl border border-surface-200/80 bg-white p-8 shadow-card-sm transition-all duration-300 hover:border-primary-200 hover:shadow-card-md hover:-translate-y-0.5"
+              <h1 className="font-heading text-4xl font-extrabold tracking-[-0.035em] text-surface-950 sm:text-5xl lg:text-[4rem] lg:leading-[1.06]">
+                Hire better
+                <br />
+                talent to scale
+                <br />
+                your projects
+              </h1>
+
+              <p className="mt-6 max-w-lg text-base leading-relaxed text-surface-700 sm:text-lg">
+                High-trust marketplace for verified talent, structured milestones, and escrow payouts.
+              </p>
+
+              {/* Inline quick-start action pill */}
+              <form
+                onSubmit={handleHeroStart}
+                className="mt-8 flex max-w-md items-center rounded-full border border-surface-200 bg-white p-1.5 shadow-card-lg focus-within:ring-2 focus-within:ring-primary-600"
               >
-                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary-500/0 via-primary-500/40 to-primary-500/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <input
+                  type="email"
+                  value={heroEmail}
+                  onChange={(e) => setHeroEmail(e.target.value)}
+                  placeholder="Email address"
+                  aria-label="Email address"
+                  className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-surface-900 placeholder:text-surface-400 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-surface-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap motion-reduce:transform-none"
+                >
+                  <span>{user ? "Dashboard" : "Start now"}</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </form>
 
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-50 to-accent-50 text-primary-600 transition-all duration-300 group-hover:shadow-md group-hover:shadow-primary-500/15">
-                  <feature.icon className="h-6 w-6" />
+              <div className="mt-5 flex flex-wrap items-center gap-5 text-sm font-semibold text-surface-700">
+                <Link
+                  href="/jobs"
+                  className="inline-flex items-center gap-1.5 text-primary-700 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 rounded-md"
+                >
+                  <span>Explore live jobs</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/freelancers"
+                  className="inline-flex items-center gap-1.5 text-surface-700 hover:text-surface-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 rounded-md"
+                >
+                  <span>Browse verified talent</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Right: Overlapping Mobile Escrow Checkout + Desktop Workspace Telemetry */}
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.08 }}
+              className="relative lg:col-span-6 lg:pl-8"
+            >
+              {/* Back layer: Desktop Workspace Analytics Dashboard */}
+              <div className="hidden rounded-2xl border border-surface-200/90 bg-white p-5 shadow-card-lg sm:block sm:ml-24">
+                {/* Browser / Workspace top bar */}
+                <div className="mb-4 flex items-center justify-between gap-3 border-b border-surface-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-surface-950 text-[10px] font-bold text-white">
+                      2G
+                    </div>
+                    <span className="text-xs font-bold tracking-tight text-surface-900">
+                      STUDIO NORTH
+                    </span>
+                  </div>
+                  <div className="flex flex-1 max-w-[200px] items-center gap-1.5 rounded-lg border border-surface-200 bg-surface-50 px-2.5 py-1 text-[11px] text-surface-400">
+                    <Search className="h-3 w-3" />
+                    <span>Search contracts…</span>
+                  </div>
                 </div>
-                <h3 className="mb-2 font-heading text-lg font-semibold text-surface-900">{feature.title}</h3>
-                <p className="text-sm leading-relaxed text-surface-500">{feature.description}</p>
-              </motion.article>
-            ))}
+
+                {/* Today Volume Metric + SVG Line Chart */}
+                <div className="rounded-xl border border-surface-100 bg-surface-50/50 p-4">
+                  <p className="text-xs font-semibold text-surface-500">Today</p>
+                  <div className="mt-1 flex items-baseline justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] text-surface-500">Escrow volume</p>
+                      <p className="font-heading text-xl font-bold tabular-nums text-surface-900">
+                        48,500 TOK
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-surface-500">Yesterday</p>
+                      <p className="font-heading text-sm font-semibold tabular-nums text-surface-700">
+                        41,200 TOK
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Clean Indigo Trend Curve */}
+                  <div className="mt-3 h-20 w-full">
+                    <svg
+                      viewBox="0 0 320 70"
+                      className="h-full w-full overflow-visible"
+                      role="img"
+                      aria-label="Escrow disbursement activity curve"
+                    >
+                      <line x1="0" y1="62" x2="320" y2="62" stroke="#e2e8f0" strokeWidth="1" />
+                      <line x1="0" y1="34" x2="320" y2="34" stroke="#f1f5f9" strokeWidth="1" />
+                      <polyline
+                        fill="none"
+                        stroke="#4f46e5"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        points="0,56 42,54 88,52 135,44 176,47 224,26 270,22 318,10"
+                      />
+                    </svg>
+                  </div>
+                  <div className="mt-1 flex justify-between text-[10px] text-surface-400">
+                    <span>00:00</span>
+                    <span className="font-semibold text-primary-700">Live · 14:00</span>
+                  </div>
+                </div>
+
+                {/* Split Mini Stat Cards */}
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-surface-100 bg-white p-3">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-surface-500">Active milestones</span>
+                      <span className="font-semibold text-success-700">+18.4%</span>
+                    </div>
+                    <p className="mt-1 font-heading text-base font-bold tabular-nums text-surface-900">
+                      142 active
+                    </p>
+                    <svg
+                      viewBox="0 0 120 28"
+                      className="mt-2 h-7 w-full"
+                      aria-hidden="true"
+                    >
+                      <polyline
+                        fill="none"
+                        stroke="#4f46e5"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        points="0,24 25,21 50,15 78,17 100,8 120,4"
+                      />
+                    </svg>
+                  </div>
+
+                  <div className="rounded-xl border border-surface-100 bg-white p-3">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-surface-500">On-time sign-off</span>
+                      <span className="inline-flex items-center gap-0.5 font-semibold text-primary-700">
+                        <TrendingUp className="h-3 w-3" />
+                        99.4%
+                      </span>
+                    </div>
+                    <p className="mt-1 font-heading text-base font-bold tabular-nums text-surface-900">
+                      &lt; 2.4 hrs
+                    </p>
+                    <svg
+                      viewBox="0 0 120 28"
+                      className="mt-2 h-7 w-full"
+                      aria-hidden="true"
+                    >
+                      <polyline
+                        fill="none"
+                        stroke="#059669"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        points="0,22 30,20 60,18 90,12 120,6"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Front layer: Overlapping Mobile Escrow Contract Card */}
+              <div className="relative z-20 mx-auto w-full max-w-[292px] rounded-[28px] border border-surface-200 bg-white p-5 shadow-card-lg sm:absolute sm:left-0 sm:top-6">
+                {/* Product/Project Card Header */}
+                <div className="text-center">
+                  <div className="mx-auto mb-2.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-sm">
+                    <Shield className="h-6 w-6" />
+                  </div>
+                  <p className="text-xs font-bold text-surface-900">
+                    Next.js 15 &amp; Prisma API
+                  </p>
+                  <p className="text-[11px] text-surface-500">
+                    2,400 TOK (~₹{2400 * TOKEN_PRICE_INR})
+                  </p>
+                </div>
+
+                {/* Dark Pay / Escrow Action Bar */}
+                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-surface-950 py-2 text-xs font-semibold text-white">
+                  <Lock className="h-3.5 w-3.5 text-primary-300" />
+                  <span>Escrow Milestone #2</span>
+                </div>
+
+                <div className="my-3.5 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-surface-200" />
+                  <span className="text-[11px] font-medium text-surface-400">
+                    Contract verification
+                  </span>
+                  <div className="h-px flex-1 bg-surface-200" />
+                </div>
+
+                {/* Form-like detail rows matching Stripe card rhythm */}
+                <div className="space-y-2.5 text-left">
+                  <div>
+                    <p className="mb-1 text-[11px] font-medium text-surface-500">
+                      Assigned specialist
+                    </p>
+                    <div className="flex items-center justify-between rounded-lg border border-surface-200 bg-surface-50 px-3 py-1.5 text-xs font-medium text-surface-900">
+                      <span>Alex Chen</span>
+                      <span className="text-primary-700 font-semibold">4.9 ★</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-[11px] font-medium text-surface-500">
+                      Milestone proof
+                    </p>
+                    <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-surface-200 bg-white text-[11px]">
+                      <div className="border-r border-surface-200 px-2.5 py-1.5 font-medium text-surface-700">
+                        Tests: Passed
+                      </div>
+                      <div className="px-2.5 py-1.5 font-semibold tabular-nums text-success-700">
+                        45 TOK stake
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-[11px] font-medium text-surface-500">
+                      Disbursement rule
+                    </p>
+                    <div className="flex items-center justify-between rounded-lg border border-surface-200 bg-white px-3 py-1.5 text-[11px] text-surface-700">
+                      <span>On milestone review</span>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <Link
+                  href="/jobs"
+                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-600 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 active:scale-[0.98] motion-reduce:transform-none"
+                >
+                  <span>Inspect Open Contracts</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* ═══════ ROLE TRACKS ═══════ */}
-      <section className="border-t border-surface-100 bg-surface-50/50 py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }} className="mb-12 text-center">
-            <p className="section-label">Role-based experience</p>
-            <h2 className="font-heading text-4xl font-bold tracking-tight text-surface-900">
-              Two paths. One professional platform.
-            </h2>
-          </motion.div>
+      {/* ═══════ METRICS BANNER ═══════ */}
+      <section className="border-b border-surface-200 bg-surface-50 py-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+            <div className="border-l-2 border-primary-600 pl-4">
+              <p className="font-heading text-2xl font-bold tabular-nums text-surface-900 sm:text-3xl">
+                {mockJobs.length * 15}+
+              </p>
+              <p className="mt-0.5 text-xs text-surface-500">Active verified jobs</p>
+            </div>
+            <div className="border-l-2 border-primary-600 pl-4">
+              <p className="font-heading text-2xl font-bold tabular-nums text-surface-900 sm:text-3xl">
+                98.4%
+              </p>
+              <p className="mt-0.5 text-xs text-surface-500">Milestone completion</p>
+            </div>
+            <div className="border-l-2 border-primary-600 pl-4">
+              <p className="font-heading text-2xl font-bold tabular-nums text-surface-900 sm:text-3xl">
+                &lt; 2.4 hrs
+              </p>
+              <p className="mt-0.5 text-xs text-surface-500">Proposal response time</p>
+            </div>
+            <div className="border-l-2 border-primary-600 pl-4">
+              <p className="font-heading text-2xl font-bold tabular-nums text-surface-900 sm:text-3xl">
+                100%
+              </p>
+              <p className="mt-0.5 text-xs text-surface-500">Escrow backed contracts</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {roleTracks.map((track, index) => (
-              <motion.article
+      {/* ═══════ TWO DISTINCT ROLES ═══════ */}
+      <section className="border-b border-surface-200 bg-white py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-surface-900 sm:text-4xl">
+              Engineered for both sides of the marketplace
+            </h2>
+            <p className="mx-auto mt-2.5 max-w-2xl text-base text-surface-600">
+              Select your path to enter a workspace tailored to your exact operational requirements.
+            </p>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-2">
+            {roleTracks.map((track) => (
+              <div
                 key={track.title}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: index * 0.08 }}
-                className="group relative overflow-hidden rounded-2xl border border-surface-200/80 bg-white p-8 shadow-card-sm transition-all duration-300 hover:shadow-card-md hover:-translate-y-0.5"
+                className="flex flex-col justify-between rounded-2xl border border-surface-200 bg-surface-50/50 p-8 shadow-card-sm transition-[border-color,box-shadow,transform] duration-200 hover:border-surface-300 hover:shadow-card-md hover:-translate-y-0.5 motion-reduce:transform-none"
               >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-50 to-accent-50 text-primary-600 shadow-sm">
-                  <track.icon className="h-7 w-7" />
+                <div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary-800">
+                      <track.icon className="h-6 w-6" />
+                    </div>
+                    <span className="rounded-full border border-surface-200 bg-white px-3 py-1 text-xs font-semibold text-surface-700">
+                      {track.badge}
+                    </span>
+                  </div>
+
+                  <h3 className="font-heading text-2xl font-bold text-surface-900">{track.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-surface-600">{track.subtitle}</p>
+
+                  <ul className="my-6 space-y-3 border-t border-surface-200/80 pt-6 text-sm text-surface-700">
+                    {track.points.map((pt) => (
+                      <li key={pt} className="flex items-start gap-2.5">
+                        <CheckCircle2 className="h-4 w-4 text-success-600 flex-shrink-0 mt-0.5" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <h3 className="mb-4 font-heading text-2xl font-semibold text-surface-900">{track.title}</h3>
-                <ul className="mb-6 space-y-2.5 text-sm text-surface-600">
-                  {track.points.map((point) => (
-                    <li key={point} className="flex items-center gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success-500" />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
+
                 <Link
                   href={track.href}
-                  className="btn-primary btn-md group/btn inline-flex items-center gap-2"
+                  className="btn-primary btn-md inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
                   {track.ctaLabel}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
-              </motion.article>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* ═══════ HOW IT WORKS ═══════ */}
-      <section className="border-t border-surface-100 bg-white py-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }} className="mb-16 text-center">
-            <p className="section-label">How it works</p>
-            <h2 className="font-heading text-4xl font-bold tracking-tight text-surface-900">
-              Simple structure. Clear progression.
+      <section className="border-b border-surface-200 bg-surface-50 py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-14 text-center">
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-surface-900 sm:text-4xl">
+              How 2Gathers operates
             </h2>
-          </motion.div>
+            <p className="mx-auto mt-2.5 max-w-2xl text-base text-surface-600">
+              Clear structure from account creation to completed project reviews.
+            </p>
+          </div>
 
           <div className="grid gap-8 md:grid-cols-3">
-            {steps.map((step, index) => (
-              <motion.article
+            {steps.map((step) => (
+              <div
                 key={step.n}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: index * 0.08 }}
-                className="relative"
+                className="relative rounded-2xl border border-surface-200 bg-white p-7 shadow-card-sm"
               >
-                <div className="mb-4 font-heading text-5xl font-black select-none bg-gradient-to-b from-surface-200 to-surface-100 bg-clip-text text-transparent">
-                  {step.n}
+                <div className="mb-4 text-xs font-semibold text-primary-700">
+                  Step {step.n}
                 </div>
-                <h3 className="mb-2 font-heading text-lg font-semibold text-surface-900">{step.title}</h3>
-                <p className="text-sm leading-relaxed text-surface-500">{step.body}</p>
-              </motion.article>
+                <h3 className="mb-2 font-heading text-lg font-bold text-surface-900">
+                  {step.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-surface-600">
+                  {step.body}
+                </p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════ FEATURED JOBS ═══════ */}
-      <section className="border-t border-surface-100 bg-surface-50/50 py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-10 flex items-end justify-between gap-4">
+      {/* ═══════ FEATURED OPPORTUNITIES ═══════ */}
+      <section className="border-b border-surface-200 bg-white py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="section-label">Trending jobs</p>
-              <h2 className="font-heading text-3xl font-bold tracking-tight text-surface-900">Featured opportunities</h2>
+              <h2 className="font-heading text-3xl font-bold tracking-tight text-surface-900 sm:text-4xl">
+                Featured live projects
+              </h2>
+              <p className="mt-1 text-sm text-surface-600">Active engagements accepting candidate proposals today</p>
             </div>
-            <Link href="/jobs" className="hidden items-center gap-1.5 text-sm font-medium text-primary-600 transition hover:text-primary-700 md:flex">
-              View all <ChevronRight className="h-4 w-4" />
+            <Link
+              href="/jobs"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700 transition-colors hover:text-primary-800"
+            >
+              View all listings <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {mockJobs.slice(0, 3).map((job, index) => (
-              <motion.article
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {mockJobs.slice(0, 3).map((job) => (
+              <article
                 key={job.id}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: index * 0.08 }}
-                className="group relative overflow-hidden rounded-2xl border border-surface-200/80 bg-white p-6 shadow-card-sm transition-all duration-300 hover:border-primary-200 hover:shadow-card-md hover:-translate-y-0.5"
+                className="flex flex-col justify-between rounded-2xl border border-surface-200 bg-white p-6 shadow-card-sm transition-[border-color,box-shadow,transform] duration-200 hover:border-surface-300 hover:shadow-card-md hover:-translate-y-0.5 motion-reduce:transform-none"
               >
-                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary-500/0 via-primary-500/40 to-primary-500/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <div>
+                  <div className="mb-3 flex items-center justify-between text-xs">
+                    <span className="rounded-md border border-surface-200 bg-surface-50 px-2 py-0.5 font-medium text-surface-700">
+                      {job.client}
+                    </span>
+                    <span className="font-semibold text-primary-700">
+                      {job.tokenCost} TOK Stake
+                    </span>
+                  </div>
+                  <h3 className="font-heading text-lg font-bold text-surface-900 hover:text-primary-700">
+                    <Link href="/jobs">{job.title}</Link>
+                  </h3>
+                  <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-surface-600">
+                    {job.description}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-1.5 text-xs">
+                    {job.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-md bg-surface-100 px-2 py-0.5 text-[11px] font-medium text-surface-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <span className="badge-slate">{job.status}</span>
-                  <span className="rounded-lg bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">{job.tokenCost} tokens</span>
-                </div>
-                <h3 className="mb-2 font-heading text-base font-semibold text-surface-900 transition-colors group-hover:text-primary-700">{job.title}</h3>
-                <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-surface-500">{job.description}</p>
-                <div className="mb-4 flex flex-wrap gap-1.5">
-                  {job.tags.map((tag) => (
-                    <span key={tag} className="rounded-lg bg-surface-50 px-2.5 py-1 text-xs font-medium text-surface-600 ring-1 ring-surface-200/80">{tag}</span>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between border-t border-surface-100 pt-4">
-                  <span className="font-heading text-xl font-bold text-surface-900">{job.budget}</span>
-                  <Link href="/register" className="flex items-center gap-1 text-sm font-medium text-primary-600 transition hover:text-primary-700">
-                    Apply <ChevronRight className="h-4 w-4" />
+                <div className="mt-6 flex items-center justify-between border-t border-surface-100 pt-4">
+                  <div>
+                    <span className="text-[11px] text-surface-500 block">Budget</span>
+                    <span className="font-heading text-base font-bold text-surface-900">{job.budget}</span>
+                  </div>
+                  <Link
+                    href="/jobs"
+                    className="btn-primary btn-sm inline-flex items-center gap-1"
+                  >
+                    View Project <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
-              </motion.article>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════ TESTIMONIALS ═══════ */}
-      <section className="border-t border-surface-800 bg-surface-950 py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }} className="mb-14 text-center">
-            <p className="section-label">Testimonials</p>
-            <h2 className="font-heading text-3xl font-bold tracking-tight text-white">
-              Designed to feel calm and professional.
+      {/* ═══════ VERIFIED EXPERIENCES ═══════ */}
+      <section className="border-b border-surface-200 bg-surface-50 py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-surface-900 sm:text-4xl">
+              Verified marketplace outcomes
             </h2>
-          </motion.div>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-surface-600">
+              Feedback from active developers and product managers on 2Gathers.
+            </p>
+          </div>
 
           <div className="grid gap-6 md:grid-cols-3">
-            {testimonials.map((item, index) => (
-              <motion.article
-                key={item.name}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: index * 0.08 }}
-                className="rounded-2xl border border-surface-800/80 bg-surface-900/40 p-6 backdrop-blur-sm transition-all duration-300 hover:border-surface-700"
+            {testimonials.map((t) => (
+              <div
+                key={t.name}
+                className="flex flex-col justify-between rounded-2xl border border-surface-200 bg-white p-6 shadow-card-sm"
               >
-                <div className="mb-4 flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, starIndex) => (
-                    <Star key={starIndex} className="h-4 w-4 fill-warning-500 text-warning-500" />
-                  ))}
-                </div>
-                <p className="mb-5 text-sm leading-relaxed text-surface-300 italic">&ldquo;{item.quote}&rdquo;</p>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-accent-500 text-xs font-bold text-white">
-                    {item.name[0]}
+                <div>
+                  <div className="mb-3 flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-warning-500 text-warning-500" />
+                    ))}
                   </div>
+                  <p className="text-xs leading-relaxed text-surface-700">&ldquo;{t.quote}&rdquo;</p>
+                </div>
+
+                <div className="mt-5 border-t border-surface-100 pt-3 flex items-center justify-between text-xs">
                   <div>
-                    <div className="text-sm font-semibold text-white">{item.name}</div>
-                    <div className="text-xs text-surface-500">{item.role}</div>
+                    <p className="font-bold text-surface-900">{t.name}</p>
+                    <p className="text-[11px] text-surface-500">{t.role}</p>
                   </div>
+                  <span className="rounded-md bg-surface-100 px-2 py-0.5 text-[11px] font-medium text-surface-700">
+                    {t.rate}
+                  </span>
                 </div>
-              </motion.article>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════ CTA ═══════ */}
-      <section className="border-t border-surface-100 bg-white py-24">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45 }}>
-            <h2 className="font-heading text-4xl font-bold tracking-tight text-surface-900">Ready to get started?</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-surface-500">
-              Join as freelancer or client and move from sign-up to action with a clear, professional workflow.
-            </p>
-            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/register"
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-primary-600/25 transition-all hover:shadow-xl active:scale-[0.98]"
-              >
-                Create account <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <Link href="/login" className="btn-secondary btn-xl">Sign in</Link>
-            </div>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm text-surface-500">
-              <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success-500" />Fast setup</span>
-              <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success-500" />Polished layout</span>
-              <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success-500" />Responsive shell</span>
-            </div>
-          </motion.div>
+      {/* ═══════ READY TO START CTA ═══════ */}
+      <section className="bg-white py-20">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-surface-900 sm:text-4xl">
+            Ready to experience a modern marketplace?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-base text-surface-600">
+            Create an account in minutes and connect with top clients and freelancers on 2Gathers.
+          </p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href="/register"
+              className="btn-primary btn-lg inline-flex items-center justify-center gap-2 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]"
+            >
+              Create Account
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/login"
+              className="btn-secondary btn-lg inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-400"
+            >
+              Sign In
+            </Link>
+          </div>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-surface-500">
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success-600" />
+              Fast registration
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success-600" />
+              No subscription paywalls
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success-600" />
+              Escrow milestone protection
+            </span>
+          </div>
         </div>
       </section>
 

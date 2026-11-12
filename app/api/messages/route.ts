@@ -43,6 +43,12 @@ export async function GET(request: Request) {
   if (!allowed) {
     return NextResponse.json({ detail: "Forbidden" }, { status: 403 });
   }
+  if (proposal.status !== "ACCEPTED") {
+    return NextResponse.json(
+      { detail: "Messaging is only available after the client accepts a proposal. Communicate inside your Project Workspace." },
+      { status: 403 }
+    );
+  }
 
   const messages = await prisma.message.findMany({
     where: { proposalId },
@@ -105,6 +111,12 @@ export async function POST(request: Request) {
   const isFreelancer = userId === proposal.freelancerId;
   if (!isClient && !isFreelancer) {
     return NextResponse.json({ detail: "Forbidden" }, { status: 403 });
+  }
+  if (proposal.status !== "ACCEPTED") {
+    return NextResponse.json(
+      { detail: "Messaging is only available after the client accepts a proposal. Communicate inside your Project Workspace." },
+      { status: 403 }
+    );
   }
 
   const receiverId = isClient ? proposal.freelancerId : proposal.job.clientId;

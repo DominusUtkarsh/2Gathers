@@ -175,13 +175,16 @@ export function FreelancerAnalytics() {
       <motion.article initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card-surface p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Main CTA</p>
-            <h2 className="text-2xl font-semibold text-slate-900">Find high-quality projects faster</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <h2 className="text-xl font-semibold text-surface-900">Find high-quality projects faster</h2>
+            <p className="mt-1 text-sm text-surface-600">
               You have {analytics.activeProjects} active projects and {analytics.completedCount} completed. Top listed skill: {topSkill}.
             </p>
           </div>
-          <button onClick={() => router.push("/freelancer/jobs")} className="btn-primary btn-lg">
+          <button
+            type="button"
+            onClick={() => router.push("/freelancer/jobs")}
+            className="btn-primary btn-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Get Jobs
           </button>
         </div>

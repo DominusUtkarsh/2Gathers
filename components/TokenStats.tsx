@@ -14,7 +14,7 @@ export function TokenStats({
   return (
     <section className="overflow-hidden rounded-2xl border border-surface-200/80 bg-white shadow-card-sm">
       <div className="border-b border-surface-100 px-5 py-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-surface-400">
+        <p className="text-xs font-medium text-surface-500">
           {label}
         </p>
       </div>
