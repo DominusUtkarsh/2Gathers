@@ -249,17 +249,20 @@ model UserTaskProgress {
 }
 
 model TaskSubmission {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  taskId       Int
-  code         String
-  output       String?
-  testsPassed  Boolean  @default(false)
-  passedTests  Int      @default(0)
-  totalTests   Int      @default(0)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
+  id                   Int      @id @default(autoincrement())
+  userId               Int
+  taskId               Int
+  code                 String
+  output               String?
+  testsPassed          Boolean  @default(false)
+  passedTests          Int      @default(0)
+  totalTests           Int      @default(0)
+  proctoringTrustScore Int?
+  proctoringFlagged    Boolean  @default(false)
+  proctoringData       String?
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task                 Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
 }
 
 model TokenTransaction {

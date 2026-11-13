@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, XCircle, Loader } from "lucide-react";
+import { CheckCircle, XCircle, Loader, ShieldCheck, ShieldAlert, FileText } from "lucide-react";
 
 interface TestResult {
   test: string;
@@ -16,6 +16,9 @@ interface TestResultsProps {
   results?: TestResult[];
   message?: string;
   allPassed?: boolean;
+  isProctoringFlagged?: boolean;
+  proctoringTrustScore?: number;
+  onViewProctoringReport?: () => void;
 }
 
 export function TestResults({
@@ -25,23 +28,62 @@ export function TestResults({
   results = [],
   message = "",
   allPassed = false,
+  isProctoringFlagged,
+  proctoringTrustScore,
+  onViewProctoringReport,
 }: TestResultsProps) {
   if (!results || results.length === 0) {
     return null;
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+      <div className="flex items-center justify-between">
         <h3 className="font-semibold text-slate-900">Test Results</h3>
         {loading && <Loader className="h-4 w-4 animate-spin text-blue-600" />}
       </div>
 
+      {/* Proctoring Verification Stamp */}
+      {proctoringTrustScore !== undefined && (
+        <div
+          className={`flex items-center justify-between rounded-lg border p-3 text-xs ${
+            isProctoringFlagged
+              ? "border-red-300 bg-red-50 text-red-800"
+              : "border-emerald-300 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {isProctoringFlagged ? (
+              <ShieldAlert className="h-4 w-4 text-red-600 shrink-0" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+            )}
+            <span className="font-semibold">
+              {isProctoringFlagged
+                ? `Invigilation Flagged (Trust Score: ${proctoringTrustScore}%)`
+                : `Invigilation Confirmed (Trust Score: ${proctoringTrustScore}%)`}
+            </span>
+          </div>
+
+          {onViewProctoringReport && (
+            <button
+              onClick={onViewProctoringReport}
+              className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 font-semibold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-50 transition"
+            >
+              <FileText className="h-3 w-3" />
+              View Audit
+            </button>
+          )}
+        </div>
+      )}
+
       {message && (
         <div
-          className={`mb-4 rounded px-3 py-2 text-sm font-medium ${
+          className={`rounded px-3 py-2 text-sm font-medium ${
             allPassed
-              ? "bg-emerald-100 text-emerald-800"
+              ? isProctoringFlagged
+                ? "bg-amber-100 text-amber-800"
+                : "bg-emerald-100 text-emerald-800"
               : "bg-amber-100 text-amber-800"
           }`}
         >
