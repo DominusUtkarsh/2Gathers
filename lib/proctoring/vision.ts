@@ -52,13 +52,19 @@ export async function detectFaces(
       count: 0,
       boxes: [],
       isObstructed: false,
+      isLookingAway: false,
     };
+  }
+
+  // Ensure video is actively playing if ready
+  if (video.paused) {
+    video.play().catch(() => {});
   }
 
   const vWidth = video.videoWidth;
   const vHeight = video.videoHeight;
 
-  // First verify lighting / obstruction on frame
+  // 1. Lighting / Obstruction Check (Room lights off or lens covered)
   const lightingCheck = checkFrameLighting(video, workCanvas);
   if (lightingCheck.isObstructed) {
     return {
@@ -70,7 +76,7 @@ export async function detectFaces(
     };
   }
 
-  // Try native hardware-accelerated face detector if available
+  // 2. Hardware-accelerated native detector if available in browser
   const nativeDetector = getNativeFaceDetector();
   if (nativeDetector) {
     try {
@@ -84,23 +90,12 @@ export async function detectFaces(
           confidence: 0.95,
         }));
 
-        // Sort by area descending (largest face is primary)
         boxes.sort((a, b) => b.width * b.height - a.width * a.height);
         const primary = boxes[0];
 
-        // Check if looking away (face bounding box strongly skewed to border)
         const faceCenterX = primary.x + primary.width / 2;
         const normalizedCenterX = faceCenterX / vWidth;
         const isLookingAway = normalizedCenterX < 0.15 || normalizedCenterX > 0.85;
-
-        // Sensitive multi-person cross-verification: If native detector found 1 face,
-        // verify with in-canvas skin blob analysis to catch a secondary person in background/profile angle
-        if (boxes.length === 1) {
-          const fallback = analyzeCanvasSkinFallback(video, workCanvas);
-          if (fallback.detected && fallback.count > 1) {
-            return fallback;
-          }
-        }
 
         return {
           detected: true,
@@ -110,21 +105,18 @@ export async function detectFaces(
           isObstructed: false,
           isLookingAway,
         };
-      } else {
-        // Double-check with canvas fallback in case detector missed under certain angles
-        return analyzeCanvasSkinFallback(video, workCanvas);
       }
     } catch {
       nativeDetectorFailed = true;
     }
   }
 
-  // Fallback: in-canvas chrominance and contour clustering
+  // 3. Robust in-canvas computer vision fallback
   return analyzeCanvasSkinFallback(video, workCanvas);
 }
 
 /**
- * Quick check for dark room (lights off), covered camera, or blinding backlight.
+ * Checks for darkness (room lights off), covered camera lens, or blinding glare.
  */
 function checkFrameLighting(
   video: HTMLVideoElement,
@@ -149,16 +141,17 @@ function checkFrameLighting(
   }
 
   const avgLuminance = totalLuminance / (w * h);
-  // Pitch black / room lights off (avgLuminance < 25) or blinding glare (> 245)
-  const isObstructed = avgLuminance < 25 || avgLuminance > 245;
+  // Pitch black / room lights off (avgLuminance < 36) or blinding glare (> 245)
+  const isObstructed = avgLuminance < 36 || avgLuminance > 245;
 
   return { isObstructed, avgLuminance };
 }
 
 /**
  * Pure Canvas Computer Vision Analyzer:
- * Uses YCbCr skin modeling + histogram projection with peak-valley separation
- * to accurately detect single vs multiple persons without false positives for centered users.
+ * Uses YCbCr skin modeling + 2D connected components + body part merging
+ * to reliably detect a single candidate without false positives from neck, collar, or hands.
+ * Only flags multiple faces when a distinct secondary head is horizontally separated in frame.
  */
 function analyzeCanvasSkinFallback(
   video: HTMLVideoElement,
@@ -174,16 +167,15 @@ function analyzeCanvasSkinFallback(
 
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) {
-    return { detected: false, count: 0, boxes: [], isObstructed: false };
+    return { detected: false, count: 0, boxes: [], isObstructed: false, isLookingAway: false };
   }
 
   ctx.drawImage(video, 0, 0, w, h);
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
 
-  let totalLuminance = 0;
-  const skinColDensity = new Array<number>(w).fill(0);
-  const skinPixels: { x: number; y: number }[] = [];
+  const skinMask = new Uint8Array(w * h);
+  let skinPixelCount = 0;
 
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
@@ -191,49 +183,40 @@ function analyzeCanvasSkinFallback(
     const b = data[i + 2];
 
     const y = 0.299 * r + 0.587 * g + 0.114 * b;
-    totalLuminance += y;
-
     const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
     const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-    // Human skin tone cluster in YCbCr space (calibrated for varied lighting & complexions)
+    // Human skin tone cluster in YCbCr and RGB
     const isSkin =
-      cb >= 70 &&
+      cb >= 74 &&
       cb <= 136 &&
       cr >= 128 &&
       cr <= 182 &&
-      y >= 25 &&
-      y <= 245 &&
-      (r > g || Math.abs(r - g) <= 6) &&
-      r > b;
+      y >= 32 &&
+      y <= 238 &&
+      r > g &&
+      r > b &&
+      r - g >= 3;
 
     if (isSkin) {
-      const pixelIndex = i / 4;
-      const px = pixelIndex % w;
-      const py = Math.floor(pixelIndex / w);
-      skinPixels.push({ x: px, y: py });
-      skinColDensity[px] += 1;
+      const pIdx = i / 4;
+      skinMask[pIdx] = 1;
+      skinPixelCount++;
     }
   }
 
-  const avgLuminance = totalLuminance / (w * h);
-  const isObstructed = avgLuminance < 25 || avgLuminance > 245;
-
-  if (isObstructed || skinPixels.length < (w * h) * 0.03) {
+  // Not enough skin pixels in frame for a face
+  if (skinPixelCount < (w * h) * 0.02) {
     return {
       detected: false,
       count: 0,
       boxes: [],
-      isObstructed,
+      isObstructed: false,
+      isLookingAway: false,
     };
   }
 
-  // --- 1. 2D Spatial Connected Components (Blobs) ---
-  const skinMask = new Uint8Array(w * h);
-  for (const p of skinPixels) {
-    skinMask[p.y * w + p.x] = 1;
-  }
-
+  // 2D Spatial Connected Components (Blobs)
   const visited = new Uint8Array(w * h);
   interface SkinBlob {
     pixels: { x: number; y: number }[];
@@ -271,20 +254,38 @@ function analyzeCanvasSkinFallback(
           if (cy > maxY) maxY = cy;
 
           // 4-connected neighbors
-          const neighbors = [curr - 1, curr + 1, curr - w, curr + w];
-          for (let n = 0; n < 4; n++) {
-            const nIdx = neighbors[n];
-            if (nIdx >= 0 && nIdx < w * h) {
-              const nx = nIdx % w;
-              if (Math.abs(nx - cx) <= 1 && skinMask[nIdx] === 1 && visited[nIdx] === 0) {
-                visited[nIdx] = 1;
-                queue.push(nIdx);
-              }
+          if (cx > 0) {
+            const left = curr - 1;
+            if (skinMask[left] === 1 && visited[left] === 0) {
+              visited[left] = 1;
+              queue.push(left);
+            }
+          }
+          if (cx < w - 1) {
+            const right = curr + 1;
+            if (skinMask[right] === 1 && visited[right] === 0) {
+              visited[right] = 1;
+              queue.push(right);
+            }
+          }
+          if (cy > 0) {
+            const up = curr - w;
+            if (skinMask[up] === 1 && visited[up] === 0) {
+              visited[up] = 1;
+              queue.push(up);
+            }
+          }
+          if (cy < h - 1) {
+            const down = curr + w;
+            if (skinMask[down] === 1 && visited[down] === 0) {
+              visited[down] = 1;
+              queue.push(down);
             }
           }
         }
 
-        if (blobPixels.length >= 18) {
+        // Only retain substantial blobs (ignore tiny noise specks)
+        if (blobPixels.length >= 35) {
           blobs.push({
             pixels: blobPixels,
             minX,
@@ -300,121 +301,108 @@ function analyzeCanvasSkinFallback(
     }
   }
 
-  blobs.sort((a, b) => b.count - a.count);
-
-  // --- 2. Horizontal Column Density Histogram Peak-Valley Analysis ---
-  const smoothed = new Array<number>(w).fill(0);
-  for (let x = 0; x < w; x++) {
-    let sum = 0;
-    let count = 0;
-    for (let dx = -2; dx <= 2; dx++) {
-      const nx = x + dx;
-      if (nx >= 0 && nx < w) {
-        sum += skinColDensity[nx];
-        count++;
-      }
-    }
-    smoothed[x] = sum / count;
-  }
-
-  const peaks: { x: number; height: number }[] = [];
-  const minPeakHeight = h * 0.08;
-
-  for (let x = 2; x < w - 2; x++) {
-    if (
-      smoothed[x] > minPeakHeight &&
-      smoothed[x] >= smoothed[x - 1] &&
-      smoothed[x] >= smoothed[x - 2] &&
-      smoothed[x] >= smoothed[x + 1] &&
-      smoothed[x] >= smoothed[x + 2]
-    ) {
-      const lastPeak = peaks[peaks.length - 1];
-      if (!lastPeak || x - lastPeak.x > w * 0.12) {
-        peaks.push({ x, height: smoothed[x] });
-      } else if (smoothed[x] > lastPeak.height) {
-        peaks[peaks.length - 1] = { x, height: smoothed[x] };
-      }
-    }
-  }
-
-  // Check if multiple persons are detected
-  const detectedPersons: { x: number; y: number }[][] = [];
-
-  // Check A: Multiple distinct 2D spatial blobs
-  if (blobs.length >= 2) {
-    const primary = blobs[0];
-    detectedPersons.push(primary.pixels);
-
-    for (let bIdx = 1; bIdx < blobs.length; bIdx++) {
-      const secondary = blobs[bIdx];
-      const dist = Math.hypot(secondary.cx - primary.cx, secondary.cy - primary.cy);
-      const isDistinctLocation = dist >= Math.min(w, h) * 0.13;
-      const isSubstantial =
-        secondary.count >= 20 &&
-        (secondary.maxX - secondary.minX) >= 5 &&
-        (secondary.maxY - secondary.minY) >= 5 &&
-        secondary.minY < h * 0.85;
-
-      if (isDistinctLocation && isSubstantial) {
-        detectedPersons.push(secondary.pixels);
-        break;
-      }
-    }
-  }
-
-  // Check B: Multi-peak valley check (if connected at torso/clothing)
-  if (detectedPersons.length < 2 && peaks.length >= 2) {
-    for (let i = 0; i < peaks.length; i++) {
-      for (let j = i + 1; j < peaks.length; j++) {
-        const p1 = peaks[i];
-        const p2 = peaks[j];
-        const distance = Math.abs(p2.x - p1.x);
-
-        if (distance >= w * 0.13) {
-          const startX = Math.min(p1.x, p2.x);
-          const endX = Math.max(p1.x, p2.x);
-          let minValley = Infinity;
-          let valleyColumns = 0;
-          const valleyThreshold = Math.min(p1.height, p2.height) * 0.68;
-
-          for (let col = startX; col <= endX; col++) {
-            if (smoothed[col] < minValley) minValley = smoothed[col];
-            if (smoothed[col] < valleyThreshold) valleyColumns++;
-          }
-
-          if (minValley < valleyThreshold && valleyColumns >= Math.max(2, Math.floor(w * 0.04))) {
-            const splitX = Math.round((p1.x + p2.x) / 2);
-            const p1Pix: { x: number; y: number }[] = [];
-            const p2Pix: { x: number; y: number }[] = [];
-            for (const p of skinPixels) {
-              if (p.x < splitX) p1Pix.push(p);
-              else p2Pix.push(p);
-            }
-
-            if (p1Pix.length >= 25 && p2Pix.length >= 25) {
-              detectedPersons.length = 0;
-              detectedPersons.push(p1Pix);
-              detectedPersons.push(p2Pix);
-              break;
-            }
-          }
-        }
-      }
-      if (detectedPersons.length >= 2) break;
-    }
-  }
-
-  // If single person detected, wrap all skin pixels
-  if (detectedPersons.length === 0) {
-    detectedPersons.push(skinPixels);
-  }
-
-  const boxes: FaceBoundingBox[] = detectedPersons.map((pixels) => {
-    const bounds = getBounds(pixels, 1 / scale);
-    return { ...bounds, confidence: 0.92 };
+  // Filter blobs that can qualify as a human head/face
+  // Must be located in upper/middle frame (not bottom hands/keyboard)
+  const candidateFaceBlobs = blobs.filter((b) => {
+    const bw = b.maxX - b.minX + 1;
+    const bh = b.maxY - b.minY + 1;
+    const aspect = bh / bw;
+    return (
+      b.minY < h * 0.72 &&
+      bw >= w * 0.08 &&
+      bh >= h * 0.10 &&
+      aspect >= 0.55 &&
+      aspect <= 2.5 &&
+      b.count >= 50
+    );
   });
 
-  boxes.sort((a, b) => b.width * b.height - a.width * a.height);
+  if (candidateFaceBlobs.length === 0) {
+    if (blobs.length > 0 && blobs[0].count > (w * h) * 0.035) {
+      candidateFaceBlobs.push(blobs[0]);
+    } else {
+      return {
+        detected: false,
+        count: 0,
+        boxes: [],
+        isObstructed: false,
+        isLookingAway: false,
+      };
+    }
+  }
+
+  // Sort candidate face blobs by size descending
+  candidateFaceBlobs.sort((a, b) => b.count - a.count);
+  const primaryBlob = candidateFaceBlobs[0];
+
+  // Check if a GENUINE second individual is present:
+  // A second person MUST:
+  // 1. Have substantial horizontal separation: |b.cx - primaryBlob.cx| >= w * 0.25 (at least 25% of frame apart)
+  // 2. Be located in the upper/middle frame (b.minY < h * 0.65)
+  // 3. Be substantial in size (count >= 90, width >= w * 0.10, height >= h * 0.12)
+  // 4. Have an upright human head aspect ratio (0.65 <= aspect <= 2.2)
+  let secondaryFaceBlob: SkinBlob | null = null;
+
+  for (let i = 1; i < candidateFaceBlobs.length; i++) {
+    const b = candidateFaceBlobs[i];
+    const horizontalDistance = Math.abs(b.cx - primaryBlob.cx);
+    const bw = b.maxX - b.minX + 1;
+    const bh = b.maxY - b.minY + 1;
+    const aspect = bh / bw;
+
+    const isDistinctHorizontal = horizontalDistance >= w * 0.25;
+    const isUpperFrame = b.minY < h * 0.65;
+    const isSubstantial = b.count >= 90 && bw >= w * 0.10 && bh >= h * 0.12;
+    const isValidAspect = aspect >= 0.65 && aspect <= 2.2;
+
+    if (isDistinctHorizontal && isUpperFrame && isSubstantial && isValidAspect) {
+      secondaryFaceBlob = b;
+      break;
+    }
+  }
+
+  // Build final face bounding boxes
+  const scaleFactor = 1 / scale;
+  const boxes: FaceBoundingBox[] = [];
+
+  // Primary face box: Merge with any vertically connected or aligned neck/body blobs
+  let pMinX = primaryBlob.minX;
+  let pMaxX = primaryBlob.maxX;
+  let pMinY = primaryBlob.minY;
+  let pMaxY = primaryBlob.maxY;
+
+  for (const b of blobs) {
+    if (b === secondaryFaceBlob) continue;
+    // If blob is vertically below the face and roughly in the same column, merge it
+    const isDirectlyBeneath =
+      Math.abs(b.cx - primaryBlob.cx) <= (primaryBlob.maxX - primaryBlob.minX) * 0.85 &&
+      b.minY >= primaryBlob.minY &&
+      b.minY <= primaryBlob.maxY + 15;
+    if (isDirectlyBeneath) {
+      pMinX = Math.min(pMinX, b.minX);
+      pMaxX = Math.max(pMaxX, b.maxX);
+      pMaxY = Math.max(pMaxY, b.maxY);
+    }
+  }
+
+  boxes.push({
+    x: Math.round(pMinX * scaleFactor),
+    y: Math.round(pMinY * scaleFactor),
+    width: Math.round(Math.max(40, (pMaxX - pMinX)) * scaleFactor),
+    height: Math.round(Math.max(40, (pMaxY - pMinY)) * scaleFactor),
+    confidence: 0.92,
+  });
+
+  if (secondaryFaceBlob) {
+    boxes.push({
+      x: Math.round(secondaryFaceBlob.minX * scaleFactor),
+      y: Math.round(secondaryFaceBlob.minY * scaleFactor),
+      width: Math.round(Math.max(40, (secondaryFaceBlob.maxX - secondaryFaceBlob.minX)) * scaleFactor),
+      height: Math.round(Math.max(40, (secondaryFaceBlob.maxY - secondaryFaceBlob.minY)) * scaleFactor),
+      confidence: 0.88,
+    });
+  }
+
   const primary = boxes[0];
   const primaryCenterX = (primary.x + primary.width / 2) / video.videoWidth;
   const isLookingAway = primaryCenterX < 0.15 || primaryCenterX > 0.85;
@@ -429,31 +417,9 @@ function analyzeCanvasSkinFallback(
   };
 }
 
-function getBounds(
-  pixels: { x: number; y: number }[],
-  scaleFactor: number
-): { x: number; y: number; width: number; height: number } {
-  if (pixels.length === 0) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const p of pixels) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
-  }
-  return {
-    x: Math.round(minX * scaleFactor),
-    y: Math.round(minY * scaleFactor),
-    width: Math.round(Math.max(20, (maxX - minX)) * scaleFactor),
-    height: Math.round(Math.max(20, (maxY - minY)) * scaleFactor),
-  };
-}
-
 /**
  * Extracts a normalized 192-dimensional facial feature signature from a video frame.
- * Uses an 8x8 spatial grid with luminance, Cb, Cr, and edge gradients.
+ * Uses an 8x8 spatial grid with luminance, Cb, Cr, and color distribution.
  */
 export function extractFaceSignature(
   video: HTMLVideoElement,

@@ -383,7 +383,7 @@ export default function TaskDetailPage({ params: paramsProm }: { params: Promise
                 },
                 body: JSON.stringify({
                   facePhoto: proctoring.baselineSnapshot,
-                  signature: proctoring.similarityScore ? [1] : [],
+                  signature: proctoring.baselineSignature || [],
                 }),
               }).catch(() => undefined);
             }

@@ -124,12 +124,13 @@ export function useProctoring({
       v.playsInline = true;
       v.muted = true;
       v.style.position = "fixed";
-      v.style.top = "-9999px";
-      v.style.left = "-9999px";
-      v.style.width = "320px";
-      v.style.height = "240px";
-      v.style.opacity = "0";
+      v.style.bottom = "0px";
+      v.style.right = "0px";
+      v.style.width = "4px";
+      v.style.height = "4px";
+      v.style.opacity = "0.01";
       v.style.pointerEvents = "none";
+      v.style.zIndex = "-999";
       document.body.appendChild(v);
       masterVideoRef.current = v;
     }
@@ -388,11 +389,11 @@ export function useProctoring({
     // GROUND TRUTH IDENTITY CHECK:
     // If the account already has an official registered face, verify this person matches the account owner!
     const accountFace = accountFaceRef.current;
-    if (accountFace?.signature && accountFace.signature.length > 0) {
+    if (accountFace?.signature && Array.isArray(accountFace.signature) && accountFace.signature.length >= 10) {
       const sim = compareFaceSignatures(accountFace.signature, signature);
       setSimilarityScore(sim);
 
-      if (sim < 0.72) {
+      if (sim < 0.70) {
         return {
           success: false,
           error: `Identity Mismatch: The person in front of the camera does NOT match the registered account owner (${accountFace.candidateName || "candidate"}). Friends or proxies cannot take assessments on your behalf.`,
@@ -527,8 +528,21 @@ export function useProctoring({
     const interval = setInterval(async () => {
       if (!isMounted || !isCameraActive) return;
 
-      const video = masterVideoRef.current;
+      // Prefer any actively rendering attached UI video, fallback to master video
+      let video: HTMLVideoElement | null = null;
+      for (const v of attachedVideosRef.current) {
+        if (v && v.readyState >= 2 && !v.paused && v.videoWidth > 0) {
+          video = v;
+          break;
+        }
+      }
+      if (!video) {
+        video = masterVideoRef.current;
+      }
       if (!video || video.readyState < 2 || video.videoWidth === 0) return;
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
 
       metricsRef.current.totalChecks += 1;
 
@@ -938,6 +952,7 @@ export function useProctoring({
     violations,
     activeViolation,
     baselineSnapshot,
+    baselineSignature: baselineSignatureRef.current,
     lastSnapshot,
     isFullscreen,
     durationSeconds,

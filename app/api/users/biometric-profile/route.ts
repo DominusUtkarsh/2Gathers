@@ -35,13 +35,14 @@ export async function GET(request: NextRequest) {
     }
 
     const profile = await getBiometricProfile(userId);
+    const isValidSignature = Boolean(profile?.signature && Array.isArray(profile.signature) && profile.signature.length >= 10);
 
     return NextResponse.json({
       success: true,
       data: {
-        hasRegisteredFace: Boolean(profile?.facePhoto),
+        hasRegisteredFace: Boolean(profile?.facePhoto && isValidSignature),
         facePhoto: profile?.facePhoto || null,
-        signature: profile?.signature || null,
+        signature: isValidSignature ? profile!.signature : null,
         registeredAt: profile?.registeredAt || null,
         candidateName: user.name,
       },
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { facePhoto, signature } = body;
 
-    if (!facePhoto || !signature || !Array.isArray(signature)) {
+    if (!facePhoto || !signature || !Array.isArray(signature) || signature.length < 10) {
       return NextResponse.json(
         { success: false, error: "Valid face photo and signature vector required" },
         { status: 400 }
