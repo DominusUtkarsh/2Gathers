@@ -109,24 +109,24 @@ export async function ensureAcceptedProposalsHaveProjects(userId: number) {
 }
 
 export async function getAuthorizedProjectContext(projectIdParam: string, request: Request) {
-  const userId = getAuthenticatedUserId(request);
-  if (!userId) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ detail: "Unauthorized" }, { status: 401 }),
-    };
-  }
+  try {
+    const userId = getAuthenticatedUserId(request);
+    if (!userId) {
+      return {
+        ok: false as const,
+        response: NextResponse.json({ detail: "Unauthorized" }, { status: 401 }),
+      };
+    }
 
-  const projectId = Number(projectIdParam);
-  if (!Number.isInteger(projectId) || projectId <= 0) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ detail: "Invalid project id" }, { status: 400 }),
-    };
-  }
+    const projectId = Number(projectIdParam);
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      return {
+        ok: false as const,
+        response: NextResponse.json({ detail: "Invalid project id" }, { status: 400 }),
+      };
+    }
 
-  const [user, project] = await Promise.all([
-    prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -136,8 +136,16 @@ export async function getAuthorizedProjectContext(projectIdParam: string, reques
         role: true,
         tokens: true,
       },
-    }),
-    prisma.project.findUnique({
+    });
+
+    if (!user) {
+      return {
+        ok: false as const,
+        response: NextResponse.json({ detail: "User not found" }, { status: 404 }),
+      };
+    }
+
+    const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
         job: {
@@ -183,40 +191,40 @@ export async function getAuthorizedProjectContext(projectIdParam: string, reques
           },
         },
       },
-    }),
-  ]);
+    });
 
-  if (!user) {
+    if (!project) {
+      return {
+        ok: false as const,
+        response: NextResponse.json({ detail: "Project not found" }, { status: 404 }),
+      };
+    }
+
+    const isClient = project.clientId === user.id;
+    const isFreelancer = project.freelancerId === user.id;
+    const isAdmin = String(user.role || "").toUpperCase() === "ADMIN";
+
+    if (!isClient && !isFreelancer && !isAdmin) {
+      return {
+        ok: false as const,
+        response: NextResponse.json({ detail: "Not authorized for this project" }, { status: 403 }),
+      };
+    }
+
+    const viewerRole: ProjectViewerRole = isClient ? "CLIENT" : isFreelancer ? "FREELANCER" : "ADMIN";
+
+    return {
+      ok: true as const,
+      user,
+      project,
+      viewerRole,
+    };
+  } catch (error) {
+    console.error("getAuthorizedProjectContext error:", error);
+    const detail = error instanceof Error ? error.message : "Internal authorization error";
     return {
       ok: false as const,
-      response: NextResponse.json({ detail: "User not found" }, { status: 404 }),
+      response: NextResponse.json({ detail }, { status: 500 }),
     };
   }
-
-  if (!project) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ detail: "Project not found" }, { status: 404 }),
-    };
-  }
-
-  const isClient = project.clientId === user.id;
-  const isFreelancer = project.freelancerId === user.id;
-  const isAdmin = String(user.role || "").toUpperCase() === "ADMIN";
-
-  if (!isClient && !isFreelancer && !isAdmin) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ detail: "Not authorized for this project" }, { status: 403 }),
-    };
-  }
-
-  const viewerRole: ProjectViewerRole = isClient ? "CLIENT" : isFreelancer ? "FREELANCER" : "ADMIN";
-
-  return {
-    ok: true as const,
-    user,
-    project,
-    viewerRole,
-  };
 }

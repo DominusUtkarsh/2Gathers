@@ -37,33 +37,52 @@ export function setToken(token: string | null) {
     } else {
       delete client.defaults.headers.common.Authorization;
     }
-  };
+  }
 }
 
-api.interceptors.request.use((config) => {
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
+function attachAuthHeader(config: any) {
+  const token =
+    accessToken ||
+    (typeof window !== "undefined"
+      ? window.localStorage.getItem("twogathers_access")
+      : null);
+
+  if (token) {
+    if (!config.headers) {
+      config.headers = {};
+    }
+    if (typeof config.headers.set === "function") {
+      config.headers.set("Authorization", `Bearer ${token}`);
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
-});
+}
+
+api.interceptors.request.use(attachAuthHeader);
+localApi.interceptors.request.use(attachAuthHeader);
 
 let isRefreshing = false;
 let pendingQueue: Array<(token: string | null) => void> = [];
 
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+function create401Interceptor(client: typeof api) {
+  return async (error: any) => {
+    const originalRequest = error?.config;
     const requestUrl = String(originalRequest?.url || "");
 
     if (
-      error.response?.status !== 401 ||
-      originalRequest._retry ||
+      error?.response?.status !== 401 ||
+      originalRequest?._retry ||
       requestUrl.includes("/auth/login") ||
       requestUrl.includes("/auth/register") ||
       requestUrl.includes("/auth/refresh") ||
       requestUrl.includes("/auth/logout")
     ) {
+      throw error;
+    }
+
+    if (!originalRequest) {
       throw error;
     }
 
@@ -76,31 +95,51 @@ api.interceptors.response.use(
             reject(error);
             return;
           }
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          resolve(api(originalRequest));
+          if (!originalRequest.headers) originalRequest.headers = {};
+          if (typeof originalRequest.headers.set === "function") {
+            originalRequest.headers.set("Authorization", `Bearer ${token}`);
+          } else {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+          }
+          resolve(client(originalRequest));
         });
       });
     }
 
     try {
       isRefreshing = true;
-      const refreshResponse = await api.post("/auth/refresh", {});
+      const refreshResponse = await localApi.post("/api/auth/refresh", {});
       const newToken = refreshResponse.data?.accessToken || null;
       setToken(newToken);
+      if (typeof window !== "undefined" && newToken) {
+        window.localStorage.setItem("twogathers_access", newToken);
+      }
       pendingQueue.forEach((cb) => cb(newToken));
       pendingQueue = [];
-      originalRequest.headers.Authorization = `Bearer ${newToken}`;
-      return api(originalRequest);
+      if (!originalRequest.headers) originalRequest.headers = {};
+      if (typeof originalRequest.headers.set === "function") {
+        originalRequest.headers.set("Authorization", `Bearer ${newToken}`);
+      } else {
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      }
+      return client(originalRequest);
     } catch (refreshError) {
       setToken(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("twogathers_access");
+        window.localStorage.removeItem("twogathers_user");
+      }
       pendingQueue.forEach((cb) => cb(null));
       pendingQueue = [];
       throw refreshError;
     } finally {
       isRefreshing = false;
     }
-  },
-);
+  };
+}
+
+api.interceptors.response.use((res) => res, create401Interceptor(api));
+localApi.interceptors.response.use((res) => res, create401Interceptor(localApi));
 
 export const authApi = {
   register: (payload: { username: string; email: string; password: string; role: string }) => localApi.post("/api/auth/register", payload),

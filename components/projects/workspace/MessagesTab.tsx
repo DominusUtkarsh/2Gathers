@@ -56,11 +56,21 @@ export function MessagesTab({
   }, [messages.length]);
 
   const sendMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload?: {
+      body: string;
+      fileUrl?: string | null;
+      fileName?: string | null;
+    }) => {
+      const sendBody = (payload?.body ?? body).trim();
+      const sendFileUrl =
+        payload?.fileUrl !== undefined ? payload.fileUrl : attachedFile?.url || null;
+      const sendFileName =
+        payload?.fileName !== undefined ? payload.fileName : attachedFile?.fileName || null;
+
       return projectsApi.messages.send(project.id, {
-        body: body.trim(),
-        fileUrl: attachedFile?.url || null,
-        fileName: attachedFile?.fileName || null,
+        body: sendBody,
+        fileUrl: sendFileUrl,
+        fileName: sendFileName,
       });
     },
     onSuccess: async () => {
@@ -70,9 +80,15 @@ export function MessagesTab({
       await messagesQuery.refetch();
     },
     onError: (err: unknown) => {
+      const axiosErr = err as {
+        response?: { data?: { detail?: string; message?: string } };
+        message?: string;
+      };
       const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail || "Unable to send message.";
+        axiosErr?.response?.data?.detail ||
+        axiosErr?.response?.data?.message ||
+        axiosErr?.message ||
+        "Unable to send message.";
       setErrorMsg(detail);
     },
   });
@@ -91,9 +107,15 @@ export function MessagesTab({
         });
       }
     } catch (err: unknown) {
+      const axiosErr = err as {
+        response?: { data?: { detail?: string; message?: string } };
+        message?: string;
+      };
       const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail || "File upload failed.";
+        axiosErr?.response?.data?.detail ||
+        axiosErr?.response?.data?.message ||
+        axiosErr?.message ||
+        "File upload failed.";
       setErrorMsg(detail);
     } finally {
       setUploading(false);
@@ -110,12 +132,14 @@ export function MessagesTab({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!body.trim() && !attachedFile) return;
-    if (!body.trim() && attachedFile) {
-      setBody(`Shared file: ${attachedFile.fileName}`);
-      return;
-    }
-    sendMutation.mutate();
+    const cleanBody = body.trim();
+    if (!cleanBody && !attachedFile) return;
+
+    sendMutation.mutate({
+      body: cleanBody || `Shared file: ${attachedFile?.fileName || "Attachment"}`,
+      fileUrl: attachedFile?.url || null,
+      fileName: attachedFile?.fileName || null,
+    });
   }
 
   const partnerName =
@@ -291,7 +315,10 @@ export function MessagesTab({
             <input
               type="text"
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setBody(e.target.value);
+                if (errorMsg) setErrorMsg("");
+              }}
               placeholder={
                 uploading ? "Uploading attachment..." : `Message ${partnerName}...`
               }
