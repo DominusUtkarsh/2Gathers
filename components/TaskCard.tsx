@@ -12,6 +12,8 @@ interface TaskCardProps {
   category: string;
   rewardTokens: number;
   testCasesCount: number;
+  targetAudience?: "STUDENT" | "PROFESSIONAL" | "ALL";
+  badge?: string;
 }
 
 const difficultyConfig = {
@@ -41,6 +43,8 @@ export function TaskCard({
   category,
   rewardTokens,
   testCasesCount,
+  targetAudience,
+  badge,
 }: TaskCardProps) {
   const config = difficultyConfig[difficulty];
 
@@ -52,6 +56,25 @@ export function TaskCard({
           config.glow
         )}
       >
+        {/* Audience / Special Badge */}
+        {badge && (
+          <div className="mb-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold border",
+                targetAudience === "STUDENT"
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : targetAudience === "PROFESSIONAL"
+                  ? "bg-purple-50 text-purple-800 border-purple-200"
+                  : "bg-blue-50 text-blue-800 border-blue-200"
+              )}
+            >
+              {targetAudience === "STUDENT" ? "🎓 " : targetAudience === "PROFESSIONAL" ? "💼 " : "⚡ "}
+              {badge}
+            </span>
+          </div>
+        )}
+
         <div className="mb-3 flex items-start justify-between gap-3">
           <h3 className="flex-1 font-heading text-base font-semibold text-surface-900 transition-colors group-hover:text-primary-700">
             {title}

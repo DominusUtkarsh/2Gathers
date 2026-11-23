@@ -48,7 +48,15 @@ async function runJsOrTsCase(
     ? ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
     : code;
 
-  const context = vm.createContext({});
+  const context = vm.createContext({
+    Buffer,
+    atob: typeof atob !== "undefined" ? atob : (b64: string) => Buffer.from(b64, "base64").toString("binary"),
+    btoa: typeof btoa !== "undefined" ? btoa : (bin: string) => Buffer.from(bin, "binary").toString("base64"),
+    JSON,
+    Math,
+    Date,
+    console,
+  });
   const runner = `${compiled}\n;globalThis.__judge_result = ${functionName}(...${JSON.stringify(args)});`;
   new vm.Script(runner).runInContext(context, { timeout: 1500 });
   return (context as { __judge_result?: unknown }).__judge_result;

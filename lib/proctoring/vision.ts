@@ -93,6 +93,15 @@ export async function detectFaces(
         const normalizedCenterX = faceCenterX / vWidth;
         const isLookingAway = normalizedCenterX < 0.15 || normalizedCenterX > 0.85;
 
+        // Sensitive multi-person cross-verification: If native detector found 1 face,
+        // verify with in-canvas skin blob analysis to catch a secondary person in background/profile angle
+        if (boxes.length === 1) {
+          const fallback = analyzeCanvasSkinFallback(video, workCanvas);
+          if (fallback.detected && fallback.count > 1) {
+            return fallback;
+          }
+        }
+
         return {
           detected: true,
           count: boxes.length,
@@ -187,15 +196,15 @@ function analyzeCanvasSkinFallback(
     const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
     const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-    // Human skin tone cluster in YCbCr space
+    // Human skin tone cluster in YCbCr space (calibrated for varied lighting & complexions)
     const isSkin =
-      cb >= 77 &&
-      cb <= 130 &&
-      cr >= 133 &&
-      cr <= 178 &&
-      y >= 30 &&
-      y <= 240 &&
-      r > g &&
+      cb >= 70 &&
+      cb <= 136 &&
+      cr >= 128 &&
+      cr <= 182 &&
+      y >= 25 &&
+      y <= 245 &&
+      (r > g || Math.abs(r - g) <= 6) &&
       r > b;
 
     if (isSkin) {
@@ -210,7 +219,7 @@ function analyzeCanvasSkinFallback(
   const avgLuminance = totalLuminance / (w * h);
   const isObstructed = avgLuminance < 25 || avgLuminance > 245;
 
-  if (isObstructed || skinPixels.length < (w * h) * 0.035) {
+  if (isObstructed || skinPixels.length < (w * h) * 0.03) {
     return {
       detected: false,
       count: 0,
@@ -219,7 +228,81 @@ function analyzeCanvasSkinFallback(
     };
   }
 
-  // Smooth the column density histogram with a 5-point moving average
+  // --- 1. 2D Spatial Connected Components (Blobs) ---
+  const skinMask = new Uint8Array(w * h);
+  for (const p of skinPixels) {
+    skinMask[p.y * w + p.x] = 1;
+  }
+
+  const visited = new Uint8Array(w * h);
+  interface SkinBlob {
+    pixels: { x: number; y: number }[];
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+    count: number;
+    cx: number;
+    cy: number;
+  }
+  const blobs: SkinBlob[] = [];
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (skinMask[idx] === 1 && visited[idx] === 0) {
+        const queue: number[] = [idx];
+        visited[idx] = 1;
+        const blobPixels: { x: number; y: number }[] = [];
+        let minX = x, maxX = x, minY = y, maxY = y;
+        let sumX = 0, sumY = 0;
+
+        let head = 0;
+        while (head < queue.length) {
+          const curr = queue[head++];
+          const cx = curr % w;
+          const cy = Math.floor(curr / w);
+          blobPixels.push({ x: cx, y: cy });
+          sumX += cx;
+          sumY += cy;
+          if (cx < minX) minX = cx;
+          if (cx > maxX) maxX = cx;
+          if (cy < minY) minY = cy;
+          if (cy > maxY) maxY = cy;
+
+          // 4-connected neighbors
+          const neighbors = [curr - 1, curr + 1, curr - w, curr + w];
+          for (let n = 0; n < 4; n++) {
+            const nIdx = neighbors[n];
+            if (nIdx >= 0 && nIdx < w * h) {
+              const nx = nIdx % w;
+              if (Math.abs(nx - cx) <= 1 && skinMask[nIdx] === 1 && visited[nIdx] === 0) {
+                visited[nIdx] = 1;
+                queue.push(nIdx);
+              }
+            }
+          }
+        }
+
+        if (blobPixels.length >= 18) {
+          blobs.push({
+            pixels: blobPixels,
+            minX,
+            maxX,
+            minY,
+            maxY,
+            count: blobPixels.length,
+            cx: sumX / blobPixels.length,
+            cy: sumY / blobPixels.length,
+          });
+        }
+      }
+    }
+  }
+
+  blobs.sort((a, b) => b.count - a.count);
+
+  // --- 2. Horizontal Column Density Histogram Peak-Valley Analysis ---
   const smoothed = new Array<number>(w).fill(0);
   for (let x = 0; x < w; x++) {
     let sum = 0;
@@ -234,9 +317,8 @@ function analyzeCanvasSkinFallback(
     smoothed[x] = sum / count;
   }
 
-  // Find local peaks in the horizontal skin histogram
   const peaks: { x: number; height: number }[] = [];
-  const minPeakHeight = h * 0.12;
+  const minPeakHeight = h * 0.08;
 
   for (let x = 2; x < w - 2; x++) {
     if (
@@ -246,9 +328,8 @@ function analyzeCanvasSkinFallback(
       smoothed[x] >= smoothed[x + 1] &&
       smoothed[x] >= smoothed[x + 2]
     ) {
-      // Don't add peaks that are too close to each other (< 15% width)
       const lastPeak = peaks[peaks.length - 1];
-      if (!lastPeak || x - lastPeak.x > w * 0.18) {
+      if (!lastPeak || x - lastPeak.x > w * 0.12) {
         peaks.push({ x, height: smoothed[x] });
       } else if (smoothed[x] > lastPeak.height) {
         peaks[peaks.length - 1] = { x, height: smoothed[x] };
@@ -256,58 +337,84 @@ function analyzeCanvasSkinFallback(
     }
   }
 
-  // Check if multiple persons are genuinely present:
-  // Requires TWO separate peaks with a deep valley (gap) between them where skin density drops below 25% of peak height
-  let isMultiPerson = false;
-  let person1Pixels: { x: number; y: number }[] = [];
-  let person2Pixels: { x: number; y: number }[] = [];
+  // Check if multiple persons are detected
+  const detectedPersons: { x: number; y: number }[][] = [];
 
-  if (peaks.length >= 2) {
-    const p1 = peaks[0];
-    const p2 = peaks[1];
-    const distance = Math.abs(p2.x - p1.x);
+  // Check A: Multiple distinct 2D spatial blobs
+  if (blobs.length >= 2) {
+    const primary = blobs[0];
+    detectedPersons.push(primary.pixels);
 
-    if (distance > w * 0.25) {
-      // Check the valley between p1.x and p2.x
-      const startX = Math.min(p1.x, p2.x);
-      const endX = Math.max(p1.x, p2.x);
-      let minValleyHeight = Infinity;
-      let valleyWidth = 0;
+    for (let bIdx = 1; bIdx < blobs.length; bIdx++) {
+      const secondary = blobs[bIdx];
+      const dist = Math.hypot(secondary.cx - primary.cx, secondary.cy - primary.cy);
+      const isDistinctLocation = dist >= Math.min(w, h) * 0.13;
+      const isSubstantial =
+        secondary.count >= 20 &&
+        (secondary.maxX - secondary.minX) >= 5 &&
+        (secondary.maxY - secondary.minY) >= 5 &&
+        secondary.minY < h * 0.85;
 
-      for (let x = startX; x <= endX; x++) {
-        if (smoothed[x] < minValleyHeight) {
-          minValleyHeight = smoothed[x];
-        }
-        if (smoothed[x] < Math.min(p1.height, p2.height) * 0.3) {
-          valleyWidth++;
-        }
-      }
-
-      // If valley drops below 30% of peak height across at least 8% of width, two distinct individuals are present
-      if (valleyWidth >= w * 0.08 && minValleyHeight < Math.min(p1.height, p2.height) * 0.35) {
-        isMultiPerson = true;
-        const splitX = Math.round((p1.x + p2.x) / 2);
-        for (const p of skinPixels) {
-          if (p.x < splitX) person1Pixels.push(p);
-          else person2Pixels.push(p);
-        }
+      if (isDistinctLocation && isSubstantial) {
+        detectedPersons.push(secondary.pixels);
+        break;
       }
     }
   }
 
-  const boxes: FaceBoundingBox[] = [];
+  // Check B: Multi-peak valley check (if connected at torso/clothing)
+  if (detectedPersons.length < 2 && peaks.length >= 2) {
+    for (let i = 0; i < peaks.length; i++) {
+      for (let j = i + 1; j < peaks.length; j++) {
+        const p1 = peaks[i];
+        const p2 = peaks[j];
+        const distance = Math.abs(p2.x - p1.x);
 
-  if (isMultiPerson && person1Pixels.length > 60 && person2Pixels.length > 60) {
-    const leftBounds = getBounds(person1Pixels, 1 / scale);
-    const rightBounds = getBounds(person2Pixels, 1 / scale);
-    boxes.push({ ...leftBounds, confidence: 0.9 });
-    boxes.push({ ...rightBounds, confidence: 0.9 });
-  } else {
-    // Single person
-    const bounds = getBounds(skinPixels, 1 / scale);
-    boxes.push({ ...bounds, confidence: 0.92 });
+        if (distance >= w * 0.13) {
+          const startX = Math.min(p1.x, p2.x);
+          const endX = Math.max(p1.x, p2.x);
+          let minValley = Infinity;
+          let valleyColumns = 0;
+          const valleyThreshold = Math.min(p1.height, p2.height) * 0.68;
+
+          for (let col = startX; col <= endX; col++) {
+            if (smoothed[col] < minValley) minValley = smoothed[col];
+            if (smoothed[col] < valleyThreshold) valleyColumns++;
+          }
+
+          if (minValley < valleyThreshold && valleyColumns >= Math.max(2, Math.floor(w * 0.04))) {
+            const splitX = Math.round((p1.x + p2.x) / 2);
+            const p1Pix: { x: number; y: number }[] = [];
+            const p2Pix: { x: number; y: number }[] = [];
+            for (const p of skinPixels) {
+              if (p.x < splitX) p1Pix.push(p);
+              else p2Pix.push(p);
+            }
+
+            if (p1Pix.length >= 25 && p2Pix.length >= 25) {
+              detectedPersons.length = 0;
+              detectedPersons.push(p1Pix);
+              detectedPersons.push(p2Pix);
+              break;
+            }
+          }
+        }
+      }
+      if (detectedPersons.length >= 2) break;
+    }
   }
 
+  // If single person detected, wrap all skin pixels
+  if (detectedPersons.length === 0) {
+    detectedPersons.push(skinPixels);
+  }
+
+  const boxes: FaceBoundingBox[] = detectedPersons.map((pixels) => {
+    const bounds = getBounds(pixels, 1 / scale);
+    return { ...bounds, confidence: 0.92 };
+  });
+
+  boxes.sort((a, b) => b.width * b.height - a.width * a.height);
   const primary = boxes[0];
   const primaryCenterX = (primary.x + primary.width / 2) / video.videoWidth;
   const isLookingAway = primaryCenterX < 0.15 || primaryCenterX > 0.85;

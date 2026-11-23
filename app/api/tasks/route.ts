@@ -6,8 +6,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const difficulty = searchParams.get("difficulty");
     const category = searchParams.get("category");
+    const targetAudience = searchParams.get("targetAudience");
+    const search = searchParams.get("search")?.toLowerCase().trim();
 
     let filteredTasks = [...mockTasks];
+
+    if (search) {
+      filteredTasks = filteredTasks.filter(
+        (task) =>
+          task.title.toLowerCase().includes(search) ||
+          task.description.toLowerCase().includes(search) ||
+          task.category.toLowerCase().includes(search)
+      );
+    }
 
     if (difficulty) {
       filteredTasks = filteredTasks.filter((task) => task.difficulty === difficulty);
@@ -15,6 +26,12 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       filteredTasks = filteredTasks.filter((task) => task.category === category);
+    }
+
+    if (targetAudience) {
+      filteredTasks = filteredTasks.filter(
+        (task) => task.targetAudience === targetAudience || task.targetAudience === "ALL"
+      );
     }
 
     const tasksWithMetadata = filteredTasks.map((task) => ({
@@ -27,6 +44,8 @@ export async function GET(request: NextRequest) {
       timeLimit: task.timeLimit,
       language: task.language,
       supportedLanguages: task.supportedLanguages,
+      targetAudience: task.targetAudience,
+      badge: task.badge,
       testCasesCount: mockTestCases[task.id as keyof typeof mockTestCases]?.length || 0,
     }));
 

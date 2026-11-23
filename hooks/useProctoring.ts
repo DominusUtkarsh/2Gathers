@@ -576,15 +576,24 @@ export function useProctoring({
       // 4. Multi-Person Detection Check
       if (detection.count > 1) {
         multiFaceTicksRef.current += 1;
-        if (multiFaceTicksRef.current === 2) {
+        // Sensitive trigger: Immediately penalize on tick 1
+        if (multiFaceTicksRef.current === 1) {
           logViolation(
             "MULTIPLE_FACES_DETECTED",
             "critical",
             "Multiple individuals detected in camera frame! Only the test-taker may be present."
           );
+        } else if (multiFaceTicksRef.current % 3 === 0) {
+          // Re-penalize if secondary person continues to remain in frame
+          logViolation(
+            "MULTIPLE_FACES_DETECTED",
+            "critical",
+            "Multiple people still detected in camera frame! Ensure you are completely alone."
+          );
         }
       } else {
-        multiFaceTicksRef.current = 0;
+        // Smooth decay to prevent flicker resets
+        multiFaceTicksRef.current = Math.max(0, multiFaceTicksRef.current - 1);
       }
 
       // 5. Looking Away / Attention Check
